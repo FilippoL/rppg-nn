@@ -18,8 +18,8 @@ fps = 20
 # Blood volume signal reading per second
 rds = 256
 # Path to pickled data file
-path_to_hdf5 = "data_in/data.hdf5"
-path_to_video = "data_in/data.avi"
+path_to_hdf5 = "data/data_in/data.hdf5"
+path_to_video = "data/data_in/data.avi"
 
 signal_sampling_rate = rds // sample_per_second
 frame_sampling_rate = fps // sample_per_second

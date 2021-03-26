@@ -15,8 +15,8 @@ verbosity = 1
 sample_per_second = 0.25
 fps = 20
 rds = 256
-path_to_hdf5 = "data_in/data.hdf5"
-path_to_video = "data_in/data.avi"
+path_to_hdf5 = "data/data_in/data.hdf5"
+path_to_video = "data/data_in/data.avi"
 signal_sampling_rate = rds // sample_per_second
 frame_sampling_rate = fps // sample_per_second
 
