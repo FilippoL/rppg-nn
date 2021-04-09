@@ -17,7 +17,7 @@ google-auth-oauthlib==0.4.3
 google-pasta==0.2.0
 graphviz==0.16
 grpcio==1.32.0
-h5py==2.10.0
+h5py~=3.2.1
 idna==2.10
 joblib==1.0.1
 kaggle==1.5.12

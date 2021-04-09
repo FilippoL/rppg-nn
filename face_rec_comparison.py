@@ -2,7 +2,7 @@ import cv2
 import face_recognition
 from tqdm import tqdm
 
-input_movie = cv2.VideoCapture("H:\\DatasetsThesis\\ECG-FITNESS\\00\\01\\c920-1.avi")
+input_movie = cv2.VideoCapture("G:\\DatasetsThesis\\COHFACE\\1\\0\\data.avi")
 length = int(input_movie.get(cv2.CAP_PROP_FRAME_COUNT))
 
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
@@ -25,6 +25,7 @@ for f in tqdm(range(int(length))):
 
     new_face_locations = face_recognition.face_locations(rgb_frame)
     (top, right, bottom, left) = new_face_locations[0]
+
     cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
     cv2.rectangle(frame, (left, bottom - 25), (right, bottom), (0, 0, 255), cv2.FILLED)
     font = cv2.FONT_HERSHEY_DUPLEX

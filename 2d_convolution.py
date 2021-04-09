@@ -92,7 +92,7 @@ model.add(layers.Dense(1, activation="linear"))
 
 adam = Adam(lr=0.0001)
 model.compile(optimizer=adam, loss=Huber(), metrics=['mae'])
-history = model.fit(x_train, y_train, epochs=100)
+history = model.fit(x_train, y_train, epochs=100, batch_size=1)
 model.save(f"model_{datetime.now().strftime('%Y%m%d-%H%M%S')}")
 hf = h5py.File('history_data.h5', 'w')
 hf.create_dataset('history', data=history)
