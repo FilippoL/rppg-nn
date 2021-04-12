@@ -261,3 +261,5 @@ Thumbs.db #thumbnail cache on Windows
 !.vscode/extensions.json
 *.code-workspace
 
+
+.idea/
