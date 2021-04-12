@@ -1,7 +1,7 @@
 import os
 
 import cv2
-import matplotlib.pyplot as plt
+import dlib
 import pandas as pd
 from mtcnn.mtcnn import MTCNN
 
@@ -21,7 +21,7 @@ class FaceDetectorMTCNN(FaceDetector):
     """
     Class wrapping the MTCNN (Multi-task Cascaded Convolutional Network)
     model provided by I. P. Centeno, the package implements the method proposed in
-    the paper Zhang, K et al. (2016).
+    the paper by Zhang, K et al. (2016).
     """
 
     def __init__(self, extra_pad=(0, 0), greyscale=False):
@@ -101,10 +101,54 @@ class FaceDetectorSSD(FaceDetector):
         return detected_face if not return_indices else [detected_face, mapped_coordinates]
 
 
+class FaceDetectorHOG(FaceDetector):
+    """
+        Class wrapping the HOG (histogram of oriented gradients)
+        model provided by the dlib library, the python package built on the top of this
+        implements the method proposed in the paper by Dalal et al. (2005).
+    """
+
+    def __init__(self, extra_pad=(0, 0), greyscale=False):
+        super().__init__(extra_pad, greyscale)
+        self.detector_model = dlib.get_frontal_face_detector()
+        self.faces = None
+
+    def detect_face(self, image, n_upsample=1, return_indices=False, verbose=False):
+        """
+        This function takes a picture of an image and returns the region where face is detected.
+        :param n_upsample: number of times to upsample the image.
+        :param verbose: bool for printing confidence score.
+        :param return_indices: bool for returning indices in the order top, bottom, left, right.
+        :param image:the image provided as a 3 dimensional array.
+        :return: Face region of the provided image as a 3D numpy array
+                 and indices of bounding box if return_indices is True.
+        """
+        self.faces, scores, _ = self.detector_model.run(image, n_upsample)
+        face = self.faces[0]
+        score = scores[0]
+        css = face.top(), face.right(), face.bottom(), face.left()
+        y, w, h, x = max(css[0], 0), min(css[1], image.shape[1]), min(css[2], image.shape[0]), max(css[3], 0)
+        left, right = (x - self.pad[0]), w + self.pad[0]
+        top, bottom = (y - self.pad[1]), h + self.pad[1]
+        detected_face = image[top:bottom, left:right]
+        if verbose:
+            print("Confidence: ~", str(round(self.map_range((0, 3.5), (0, 1), score), 2)) + "%")
+        detected_face = detected_face[:, :, ::-1] if self.greyscale else detected_face
+        return detected_face if not return_indices else [detected_face, [top, bottom, left, right]]
+
+    @staticmethod
+    def map_range(a, b, s):
+        (a1, a2), (b1, b2) = a, b
+        return b1 + ((s - a1) * (b2 - b1) / (a2 - a1))
+
+
 if __name__ == "__main__":
-    fd = FaceDetectorMTCNN()
+    fd = FaceDetectorHOG()
     img = cv2.imread("../data/data_in/me_slanded.jpg")
-    face, idx = fd.detect_face(img, return_indices=True)
-    plt.imshow(face)
-    plt.show()
-    print(idx)
+    face, idx = fd.detect_face(img, 1, True, True)
+    top, bottom, left, right = idx
+    cv2.rectangle(img, (left, top), (right, bottom), (0, 255, 0), 2)
+    cv2.imshow("Whole Image", img)
+    cv2.waitKey(0)
+    cv2.imshow("Cropped Image", face)
+    cv2.waitKey(0)
