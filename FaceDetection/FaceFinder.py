@@ -17,7 +17,33 @@ class FaceDetector:
         self.pad = extra_pad
         self.CONFIDENCE_STR = "Confidence"
         assert type(extra_pad) == tuple, "Parameter extra_pad expects a tuple (W,H)."
+        self.use_gtx_model = False
         self.greyscale = greyscale
+        _gtx_model = "shape_predictor_68_face_landmarks_GTX.dat"
+        _cpu_model = "shape_predictor_68_face_landmarks.dat"
+        _predictor_name = _gtx_model if self.use_gtx_model else _cpu_model
+        _predictor_path = os.path.join(os.path.dirname(__file__), "models", _predictor_name)
+        self.predictor_model = dlib.shape_predictor(_predictor_path)
+
+    def get_face_landmarks(self, image, rectangle):
+        shape = self.predictor_model(image, rectangle)
+        landmarks = np.matrix([[p.x, p.y] for p in shape.parts()])
+        return landmarks
+
+    @staticmethod
+    def shape_to_np(shape, dtype="int"):
+        coordinates = np.zeros((68, 2), dtype=dtype)
+        for n in range(0, 68):
+            coordinates[n] = (shape.part(n).x, shape.part(n).y)
+        return coordinates
+
+    @staticmethod
+    def rect_to_bb(rect):
+        x = rect.left()
+        y = rect.top()
+        w = rect.right() - x
+        h = rect.bottom() - y
+        return x, y, w, h
 
 
 class FaceDetectorMTCNN(FaceDetector):
@@ -79,14 +105,14 @@ class FaceDetectorSSD(FaceDetector):
         self.column_labels = ["img_id", "is_face", "confidence", "left", "top", "right", "bottom"]
         self.detector_name = "SSD"
 
-    def detect_face(self, image, return_indices=False, verbose=False):
+    def detect_face(self, image, return_rectangle=False, verbose=False):
         """
         This function takes a picture of an image and returns the region where face is detected.
         :param verbose: bool for printing confidence score.
-        :param return_indices: bool for returning indices in the order top, bottom, left, right.
+        :param return_rectangle: bool for returning indices in the order top, bottom, left, right.
         :param image:the image provided as a 3 dimensional array.
         :return: Face region of the provided image as a 3D numpy array
-                 and indices of bounding box if return_indices is True.
+                 and indices of bounding box when return_indices is True.
         """
         base_img = image.copy()
         original_size = base_img.shape
@@ -108,7 +134,7 @@ class FaceDetectorSSD(FaceDetector):
                   str(round(100 * detected_face_data["confidence"], 2)) + " %")
 
         detected_face = detected_face[:, :, ::-1] if self.greyscale else detected_face
-        return detected_face if not return_indices else [detected_face, mapped_coordinates]
+        return detected_face if not return_rectangle else [detected_face, mapped_coordinates]
 
 
 class FaceDetectorHOG(FaceDetector):
@@ -154,13 +180,6 @@ class FaceDetectorHOG(FaceDetector):
         return b1 + ((value - a1) * (b2 - b1) / (a2 - a1))
 
 
-class FaceDetectorOpenFaceNN4(FaceDetector):
-    """
-        Class wrapping the nn4.small2 model provided by the Open Face Comunity.
-    """
-    NotImplemented
-
-
 if __name__ == "__main__":
     face_detectors = [FaceDetectorSSD(), FaceDetectorHOG(), FaceDetectorMTCNN()]
     face_detectors_labels = ["SSD", "HOG", "MTCNN"]
@@ -180,6 +199,8 @@ if __name__ == "__main__":
             else:
                 face_img, indices = result
             t, b, l, r = indices  # top, bottom, left, right
+            rect = dlib.rectangle(l, t, r, b)
+            fd.get_face_landmarks(face_img, rect)
             cv2.rectangle(img, (l, t), (r, b), (0, 255, 0), 2)
             cv2.putText(img, face_detectors_labels[idx], (50, 50), cv2.FONT_HERSHEY_DUPLEX, 2,
                         (0, 0, 255), 4)
