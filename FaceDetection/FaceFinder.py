@@ -1,7 +1,9 @@
 import os
+import timeit
 
 import cv2
 import dlib
+import numpy as np
 import pandas as pd
 from mtcnn.mtcnn import MTCNN
 
@@ -13,6 +15,7 @@ class FaceDetector:
 
     def __init__(self, extra_pad=(0, 0), greyscale=False):
         self.pad = extra_pad
+        self.CONFIDENCE_STR = "Confidence"
         assert type(extra_pad) == tuple, "Parameter extra_pad expects a tuple (W,H)."
         self.greyscale = greyscale
 
@@ -28,6 +31,7 @@ class FaceDetectorMTCNN(FaceDetector):
         super().__init__(extra_pad, greyscale)
         self.detector_model = MTCNN()
         self.faces = None
+        self.detector_name = "MTCNN"
 
     def detect_face(self, image, return_indices=False, verbose=False):
         """
@@ -39,13 +43,17 @@ class FaceDetectorMTCNN(FaceDetector):
                  and indices of bounding box if return_indices is True.
         """
         self.faces = self.detector_model.detect_faces(image)
+        if len(self.faces) == 0:
+            print("No face found by MTCNN.")
+            return False
         face_data = self.faces[0]
         x, y, w, h = face_data['box']
         left, right = (x - self.pad[0]), x + (w + self.pad[0])
         top, bottom = (y - self.pad[1]), y + (h + self.pad[1])
         detected_face = image[top:bottom, left:right]
         if verbose:
-            print("Confidence: ", str(round(100 * face_data["confidence"], 2)) + " %")
+            print(self.CONFIDENCE_STR + " of " + self.detector_name + ":",
+                  str(round(100 * face_data["confidence"], 2)) + " %")
         detected_face = detected_face if self.greyscale else detected_face[:, :, ::-1]
         return detected_face if not return_indices else [detected_face, [top, bottom, left, right]]
 
@@ -65,10 +73,11 @@ class FaceDetectorSSD(FaceDetector):
     def __init__(self, extra_pad=(0, 0), greyscale=False):
         super().__init__(extra_pad, greyscale)
         config_path = os.path.join(os.path.dirname(__file__), "config", "deploy.prototxt")
-        model_path = os.path.join(os.path.dirname(__file__), "model", "res10_300x300_ssd_iter_140000.caffemodel")
+        model_path = os.path.join(os.path.dirname(__file__), "models", "res10_300x300_ssd_iter_140000.caffemodel")
         self.detector_model = cv2.dnn.readNetFromCaffe(config_path, model_path)
         self.target_size = (300, 300)
         self.column_labels = ["img_id", "is_face", "confidence", "left", "top", "right", "bottom"]
+        self.detector_name = "SSD"
 
     def detect_face(self, image, return_indices=False, verbose=False):
         """
@@ -84,20 +93,21 @@ class FaceDetectorSSD(FaceDetector):
         image = cv2.resize(image, self.target_size)
         aspect_ratio = ((original_size[1] / self.target_size[1]), (original_size[0] / self.target_size[0]))
         # Make it greyscale and resize to 300x300
-        self.detector_model.setInput(cv2.dnn.blobFromImage(image=image))
+        self.detector_model.setInput(cv2.dnn.blobFromImage(image, 1.0, (300, 300), (104.0, 117.0, 123.0)))
         detections = self.detector_model.forward()
         detections_df = pd.DataFrame(detections[0][0], columns=self.column_labels)
-        detected_face = detections_df.sort_values("confidence", ascending=False).iloc[0]
-        # Use index of downsized image and map them to orginal image coordinates so not to loose data
-        left, top, right, bottom = [int(x * 300) for x in detected_face.iloc[-4:]]
+        detected_face_data = detections_df.sort_values("confidence", ascending=False).iloc[0]
+        # Use index of downsized image and map them to original image coordinates so not to loose data
+        left, top, right, bottom = [int(x * 300) for x in detected_face_data.iloc[-4:]]
         x_from, x_to = int(top * aspect_ratio[1] - self.pad[0]), int(bottom * aspect_ratio[1] + self.pad[0])
         y_from, y_to = int(left * aspect_ratio[0] - self.pad[1]), int(right * aspect_ratio[0] + self.pad[1])
         detected_face = base_img[x_from:x_to, y_from:y_to]
         mapped_coordinates = [x_from, x_to, y_from, y_to]
         if verbose:
-            print("Confidence: ", str(round(100 * detected_face["confidence"], 2)) + " %")
+            print(self.CONFIDENCE_STR + " of " + self.detector_name + ":",
+                  str(round(100 * detected_face_data["confidence"], 2)) + " %")
 
-        detected_face = detected_face if self.greyscale else detected_face[:, :, ::-1]
+        detected_face = detected_face[:, :, ::-1] if self.greyscale else detected_face
         return detected_face if not return_indices else [detected_face, mapped_coordinates]
 
 
@@ -112,8 +122,9 @@ class FaceDetectorHOG(FaceDetector):
         super().__init__(extra_pad, greyscale)
         self.detector_model = dlib.get_frontal_face_detector()
         self.faces = None
+        self.detector_name = "HOG"
 
-    def detect_face(self, image, n_upsample=1, return_indices=False, verbose=False):
+    def detect_face(self, image, return_indices=False, verbose=False, n_upsample=1):
         """
         This function takes a picture of an image and returns the region where face is detected.
         :param n_upsample: number of times to upsample the image.
@@ -132,23 +143,54 @@ class FaceDetectorHOG(FaceDetector):
         top, bottom = (y - self.pad[1]), h + self.pad[1]
         detected_face = image[top:bottom, left:right]
         if verbose:
-            print("Confidence: ~", str(round(self.map_range((0, 3.5), (0, 1), score), 2)) + "%")
+            print(self.CONFIDENCE_STR + " of " + self.detector_name + ":" + " ~",
+                  str(round(self.map_range((0, 3.5), (0, 1), score), 2)) + "%")
         detected_face = detected_face[:, :, ::-1] if self.greyscale else detected_face
         return detected_face if not return_indices else [detected_face, [top, bottom, left, right]]
 
     @staticmethod
-    def map_range(a, b, s):
-        (a1, a2), (b1, b2) = a, b
-        return b1 + ((s - a1) * (b2 - b1) / (a2 - a1))
+    def map_range(origin_range, target_range, value):
+        (a1, a2), (b1, b2) = origin_range, target_range
+        return b1 + ((value - a1) * (b2 - b1) / (a2 - a1))
+
+
+class FaceDetectorOpenFaceNN4(FaceDetector):
+    """
+        Class wrapping the nn4.small2 model provided by the Open Face Comunity.
+    """
+    NotImplemented
 
 
 if __name__ == "__main__":
-    fd = FaceDetectorHOG()
-    img = cv2.imread("../data/data_in/me_slanded.jpg")
-    face, idx = fd.detect_face(img, 1, True, True)
-    top, bottom, left, right = idx
-    cv2.rectangle(img, (left, top), (right, bottom), (0, 255, 0), 2)
-    cv2.imshow("Whole Image", img)
-    cv2.waitKey(0)
-    cv2.imshow("Cropped Image", face)
-    cv2.waitKey(0)
+    face_detectors = [FaceDetectorSSD(), FaceDetectorHOG(), FaceDetectorMTCNN()]
+    face_detectors_labels = ["SSD", "HOG", "MTCNN"]
+    collage_pieces = []
+    for i in range(3):
+        original_img = cv2.imread(f"../data/data_in/me_{i}.jpg")
+        old_img = None
+        for idx, fd in enumerate(face_detectors):
+            print("-" * 35)
+            img = original_img.copy()
+            start = timeit.default_timer()
+            result = fd.detect_face(img, True, True)
+            print(f"Time taken by {fd.detector_name}:", timeit.default_timer() - start)
+            if not result:
+                face_img = img
+                indices = 0, 0, 0, 0
+            else:
+                face_img, indices = result
+            t, b, l, r = indices  # top, bottom, left, right
+            cv2.rectangle(img, (l, t), (r, b), (0, 255, 0), 2)
+            cv2.putText(img, face_detectors_labels[idx], (50, 50), cv2.FONT_HERSHEY_DUPLEX, 2,
+                        (0, 0, 255), 4)
+            img = cv2.resize(img, (original_img.shape[1] // 3, original_img.shape[0] // 3))
+            if idx == 0:
+                old_img = img
+            else:
+                old_img = np.hstack([old_img, img])
+
+        collage_pieces.append(old_img)
+    print("-" * 35)
+    print("\t\tDONE")
+    out_img = np.vstack([c for c in collage_pieces])
+    cv2.imwrite(f"final_comparison.jpg", out_img)

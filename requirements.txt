@@ -8,3 +8,4 @@ Pillow==8.1.2
 scipy==1.6.1
 tqdm==4.59.0
 mtcnn~=0.1.0
+dlib~=19.21.1
