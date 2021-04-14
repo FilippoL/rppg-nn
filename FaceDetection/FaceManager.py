@@ -8,8 +8,7 @@ import dlib
 import numpy as np
 import pandas as pd
 from mtcnn.mtcnn import MTCNN
-
-from helpers import FACIAL_LANDMARKS_IDXS
+import json
 
 
 # TODO: Implement handling of multiple faces
@@ -34,6 +33,10 @@ class FaceDetector:
         _predictor_path = os.path.join(os.path.dirname(__file__), "models", _predictor_name)
         self.predictor_model = dlib.shape_predictor(_predictor_path)
 
+        _facial_landmarks_indices_path = os.path.join(os.path.dirname(__file__), "config", "landmarks_indices.json")
+        with open(_facial_landmarks_indices_path) as json_file:
+            self.facial_landmarks_indices = json.load(json_file)
+
         self.desired_left_eye_coord = (0.35, 0.35)
         self.desired_face_width = 256
         self.desired_face_height = None
@@ -48,8 +51,8 @@ class FaceDetector:
     def align(self, image, landmarks):
         # For this function credits go to Adrian Rosebrock from pyImageSearch
 
-        (left_eye_from, left_eye_to) = FACIAL_LANDMARKS_IDXS["left_eye"]
-        (right_eye_from, right_eye_to) = FACIAL_LANDMARKS_IDXS["right_eye"]
+        (left_eye_from, left_eye_to) = self.facial_landmarks_indices["left_eye"]
+        (right_eye_from, right_eye_to) = self.facial_landmarks_indices["right_eye"]
 
         left_eye_points = landmarks[left_eye_from:left_eye_to]
         right_eye_points = landmarks[right_eye_from:right_eye_to]
@@ -82,6 +85,11 @@ class FaceDetector:
         (w, h) = (self.desired_face_width, self.desired_face_height)
         output = cv2.warpAffine(image, M, (w, h), flags=cv2.INTER_CUBIC)
         return output
+
+    @staticmethod
+    def map_range(origin_range, target_range, value):
+        (a1, a2), (b1, b2) = origin_range, target_range
+        return b1 + ((value - a1) * (b2 - b1) / (a2 - a1))
 
 
 class FaceDetectorMTCNN(FaceDetector):
@@ -121,12 +129,6 @@ class FaceDetectorMTCNN(FaceDetector):
                   str(100 * confidence) + " %")
         return {"detected_face_img": detected_face_img[:, :, ::-1] if greyscale_out else detected_face_img,
                 "bbox_indices": [top, bottom, left, right], "confidence": confidence}
-
-    def get_keypoints(self):
-        points = []
-        for f in self.faces:
-            points.append(f["keypoints"])
-        return points[0]
 
 
 class FaceDetectorSSD(FaceDetector):
@@ -216,11 +218,6 @@ class FaceDetectorHOG(FaceDetector):
                   str(confidence * 100) + "%")
         return {"detected_face_img": detected_face_img[:, :, ::-1] if greyscale_out else detected_face_img,
                 "bbox_indices": [top, bottom, left, right], "confidence": confidence}
-
-    @staticmethod
-    def map_range(origin_range, target_range, value):
-        (a1, a2), (b1, b2) = origin_range, target_range
-        return b1 + ((value - a1) * (b2 - b1) / (a2 - a1))
 
 
 def main(args):
