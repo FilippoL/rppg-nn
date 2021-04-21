@@ -9,10 +9,10 @@ from mtcnn.mtcnn import MTCNN
 import json
 
 
-# TODO[]: Implement handling of multiple faces
-# TODO[]: Look at the metadata of each prediction return value
-# TODO[]: Clean up
 # TODO[x]: Make it for video in real time
+# TODO[]: Look at the metadata of each prediction return value
+# TODO[]: Possibility of making working with batches of images
+# TODO[]: Clean up
 
 class FaceDetector:
     """
@@ -123,7 +123,7 @@ class FaceDetectorMTCNN(FaceDetector):
         detected_face_img = image[top:bottom, left:right]
         confidence = round(detected_face_data["confidence"], 2)
         if verbose:
-            print(self.CONFIDENCE_STR + " of " + self.detector_name + ":",
+            print(self._CONFIDENCE_STR + " of " + self.detector_name + ":",
                   str(100 * confidence) + " %")
         return {"detected_face_img": detected_face_img[:, :, ::-1] if greyscale_out else detected_face_img,
                 "bbox_indices": [top, bottom, left, right], "confidence": confidence}
@@ -172,7 +172,7 @@ class FaceDetectorSSD(FaceDetector):
         mapped_coordinates = [x_from, x_to, y_from, y_to]
         confidence = detected_face_data["confidence"]
         if verbose:
-            print(self.CONFIDENCE_STR + " of " + self.detector_name + ":",
+            print(self._CONFIDENCE_STR + " of " + self.detector_name + ":",
                   str(round(100 * confidence, 2)) + " %")
         return {"detected_face_img": detected_face_img[:, :, ::-1] if greyscale_out else detected_face_img,
                 "bbox_indices": mapped_coordinates, "confidence": confidence}
@@ -212,7 +212,7 @@ class FaceDetectorHOG(FaceDetector):
         top, bottom = (y - self.pad[1]), h + self.pad[1]
         detected_face_img = image[top:bottom, left:right]
         if verbose:
-            print(self.CONFIDENCE_STR + " of " + self.detector_name + ":" + " ~",
+            print(self._CONFIDENCE_STR + " of " + self.detector_name + ":" + " ~",
                   str(confidence * 100) + "%")
         return {"detected_face_img": detected_face_img[:, :, ::-1] if greyscale_out else detected_face_img,
                 "bbox_indices": [top, bottom, left, right], "confidence": confidence}
@@ -224,6 +224,7 @@ def main(args):
         return False
     print("No detector specified, defaulting to SSD.")
     image_path = args[0]
+    assert os.path.isfile(image_path), f"{image_path} is not a valid path."
     original_img = cv2.imread(image_path)
     img = original_img.copy()
     fd = FaceDetectorSSD()
