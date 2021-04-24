@@ -6,13 +6,13 @@ import dlib
 import numpy as np
 import pandas as pd
 from mtcnn.mtcnn import MTCNN
-import json
+
+from .FaceProcessing import FaceProcessor
 
 
 # TODO[x]: Make it for video in real time
 # TODO[]: Look at the metadata of each prediction return value
-# TODO[]: Possibility of making working with batches of images
-# TODO[]: Clean up
+# TODO[x]: Clean up
 
 class FaceDetector:
     """
@@ -23,66 +23,6 @@ class FaceDetector:
         self.pad = extra_pad
         self._CONFIDENCE_STR = "Confidence"
         assert type(extra_pad) == tuple, "Parameter extra_pad expects a tuple (W,H)."
-
-        self.use_gtx_model = False
-        _gtx_model = "shape_predictor_68_face_landmarks_GTX.dat"
-        _cpu_model = "shape_predictor_68_face_landmarks.dat"
-        _predictor_name = _gtx_model if self.use_gtx_model else _cpu_model
-        _predictor_path = os.path.join(os.path.dirname(__file__), "models", _predictor_name)
-        self.predictor_model = dlib.shape_predictor(_predictor_path)
-
-        _facial_landmarks_indices_path = os.path.join(os.path.dirname(__file__), "config", "landmarks_indices.json")
-        with open(_facial_landmarks_indices_path) as json_file:
-            self.facial_landmarks_indices = json.load(json_file)
-
-        self.desired_left_eye_coord = (0.35, 0.35)
-        self.desired_face_width = 256
-        self.desired_face_height = None
-        if self.desired_face_height is None:
-            self.desired_face_height = self.desired_face_width
-
-    def get_face_landmarks(self, image, rectangle):
-        shape = self.predictor_model(image, rectangle)
-        landmarks = np.matrix([[p.x, p.y] for p in shape.parts()])
-        return np.squeeze(np.asarray(landmarks))
-
-    def align(self, image, landmarks):
-        # This function took inspiration from Adrian Rosebrock post on pyImageSearch
-
-        (left_eye_from, left_eye_to) = self.facial_landmarks_indices["left_eye"]
-        (right_eye_from, right_eye_to) = self.facial_landmarks_indices["right_eye"]
-
-        left_eye_points = landmarks[left_eye_from:left_eye_to]
-        right_eye_points = landmarks[right_eye_from:right_eye_to]
-
-        left_eye_center = left_eye_points.mean(axis=0).astype("int")
-        right_eye_center = right_eye_points.mean(axis=0).astype("int")
-
-        dy = right_eye_center[1] - left_eye_center[1]
-        dx = right_eye_center[0] - left_eye_center[0]
-
-        angle = np.degrees(np.arctan2(dy, dx)) - 180
-        desired_right_eye_x = 1.0 - self.desired_left_eye_coord[0]
-        dist = np.sqrt((dx ** 2) + (dy ** 2))
-        desired_dist = (desired_right_eye_x - self.desired_left_eye_coord[0])
-        desired_dist *= self.desired_face_width
-
-        scale = desired_dist / dist
-
-        eyes_center = ((left_eye_center[0] + right_eye_center[0]) // 2,
-                       (left_eye_center[1] + right_eye_center[1]) // 2)
-
-        M = cv2.getRotationMatrix2D(eyes_center, angle, scale)
-
-        tx = self.desired_face_width * 0.5
-        ty = self.desired_face_height * self.desired_left_eye_coord[1]
-
-        M[0, 2] += (tx - eyes_center[0])
-        M[1, 2] += (ty - eyes_center[1])
-
-        (w, h) = (self.desired_face_width, self.desired_face_height)
-        output = cv2.warpAffine(image, M, (w, h), flags=cv2.INTER_CUBIC)
-        return output
 
     @staticmethod
     def map_range(origin_range, target_range, value):
@@ -228,6 +168,7 @@ def main(args):
     original_img = cv2.imread(image_path)
     img = original_img.copy()
     fd = FaceDetectorSSD()
+    fp = FaceProcessor()
     result = fd.detect_face(img, verbose=True)
     if not result:
         print(f"No face could be found by {fd.detector_name} face detector.\nExiting.")
@@ -235,8 +176,8 @@ def main(args):
     indices = result["bbox_indices"]
     top, bottom, left, right = indices
     rect = dlib.rectangle(left, top, right, bottom)
-    landmarks = fd.get_face_landmarks(original_img, rect)
-    aligned_and_detected = fd.align(original_img, landmarks)
+    landmarks = fp.get_face_landmarks(original_img, rect)
+    aligned_and_detected = fp.align(original_img, landmarks)
     path_to = f"{os.path.dirname(os.path.abspath(image_path))}\\aligned.jpg"
     print(f"Saved image to {path_to}")
     cv2.imwrite(path_to, aligned_and_detected)
