@@ -99,11 +99,14 @@ class FaceDetectorSSD(FaceDetector):
         aspect_ratio = ((original_size[1] / self.target_size[1]), (original_size[0] / self.target_size[0]))
         self.detector_model.setInput(cv2.dnn.blobFromImage(image, 1.0, (300, 300), (104.0, 117.0, 123.0)))
         detections = self.detector_model.forward()
-        if not np.any(detections):
-            if verbose: print("No face found by SSD.")
-            return False
+
         detections_df = pd.DataFrame(detections[0][0], columns=self.column_labels)
         detected_face_data = detections_df.sort_values("confidence", ascending=False).iloc[0]
+
+        if not np.any(detections) or detected_face_data["confidence"] < 0.25:
+            if verbose: print("No face found by SSD.")
+            return False
+
         # Use index of downsized image and map them to original image coordinates so not to loose data
         left, top, right, bottom = [int(x * 300) for x in detected_face_data.iloc[-4:]]
         x_from, x_to = int(top * aspect_ratio[1] - self.pad[0]), int(bottom * aspect_ratio[1] + self.pad[0])

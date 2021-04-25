@@ -14,14 +14,14 @@ def main():
     video_path = "./data/data_in/data.avi"
     assert os.path.isfile(video_path), f"{video_path} is not a valid path."
 
-    vidcap = cv2.VideoCapture(video_path)
-    success, image = vidcap.read()
+    video_capture = cv2.VideoCapture(video_path)
+    success, image = video_capture.read()
 
     n_frames_per_batch = 30
     segmented_frames = []
 
     while success:
-        success, img = vidcap.read()
+        success, img = video_capture.read()
         original_img = img.copy()
         result = fd.detect_face(img)
         if not result:

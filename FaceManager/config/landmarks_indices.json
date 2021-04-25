@@ -1,34 +1,51 @@
 {
-  "mouth": [
-    48,
-    68
-  ],
-  "inner_mouth": [
-    60,
-    68
-  ],
-  "right_eyebrow": [
-    17,
-    22
-  ],
-  "left_eyebrow": [
-    22,
-    27
-  ],
-  "right_eye": [
-    36,
-    42
-  ],
-  "left_eye": [
-    42,
-    48
-  ],
-  "nose": [
-    27,
-    36
-  ],
-  "jaw": [
-    0,
-    17
-  ]
+  "generic": {
+    "mouth": [
+      48,
+      59
+    ],
+    "inner_mouth": [
+      60,
+      67
+    ],
+    "right_eyebrow": [
+      17,
+      21
+    ],
+    "left_eyebrow": [
+      22,
+      26
+    ],
+    "right_eye": [
+      36,
+      41
+    ],
+    "left_eye": [
+      42,
+      47
+    ],
+    "vertical_nose": [
+      27,
+      30
+    ],
+    "horizontal_nose": [
+      31,
+      35
+    ],
+    "jaw": [
+      0,
+      16
+    ]
+  },
+  "exact": {
+    "rightmost_mouth": 48,
+    "leftmost_mouth": 54,
+    "rightmost_r_eye": 36,
+    "rightmost_l_eye": 42,
+    "leftmost_l_eye": 45,
+    "leftmost_r_eye": 39,
+    "middle_eyes": 27,
+    "nose_tip": 30,
+    "middle_jaw": 8
+  }
 }

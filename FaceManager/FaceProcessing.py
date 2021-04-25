@@ -12,9 +12,7 @@ class FaceProcessor:
     Class that will take care of the extra steps for our processing pipeline beside the detection.
     """
 
-    def __init__(self, face=None):
-        self.face_data_rgb = face
-        self.face_data_yuv = None
+    def __init__(self):
         self.use_gtx_model = False
         _gtx_model = "shape_predictor_68_face_landmarks_GTX.dat"
         _cpu_model = "shape_predictor_68_face_landmarks.dat"
@@ -88,7 +86,7 @@ class FaceProcessor:
         return output
 
     @staticmethod
-    def divide_roi_blocks(img, n_blocks=(5, 5)):
+    def divide_roi_blocks(img, n_blocks=(5, 5), reshape=True):
         """
         My implementation of a function that splits a given image in NxM blocks.
         Faster than any package that achieves the same result.
@@ -99,7 +97,10 @@ class FaceProcessor:
         horizontal_blocks, vertical_blocks = n_blocks
         horizontal = np.array_split(img, horizontal_blocks)
         splitted_img = [np.array_split(block, vertical_blocks, axis=1) for block in horizontal]
-        return np.asarray(splitted_img, dtype=np.ndarray).reshape(n_blocks)
+        if reshape:
+            return np.asarray(splitted_img, dtype=np.ndarray).reshape(n_blocks)
+        else:
+            return splitted_img
 
     @staticmethod
     def rgb_to_yuv(img):
@@ -109,7 +110,7 @@ class FaceProcessor:
         :return: The projected image as a numpy array.
         """
         coefficient = np.array([[0.299, 0.587, 0.114], [0.169, 0.331, 0.5], [0.5, 0.419, 0.081]])
-        result = np.add(img.dot(coefficient), [0,128,128])
+        result = np.add(img.dot(coefficient), [0, 128, 128])
         return result
 
     def project_to_yuv(self, img):
@@ -118,11 +119,9 @@ class FaceProcessor:
         :param: image: The image to be processed.
         :return: The projected image as a numpy array.
         """
-        self.face_data_rgb = img
         normalised_face_data = np.divide(img, 255)
         tensor_yuv = tf.image.rgb_to_yuv(normalised_face_data)
-        self.face_data_yuv = tensor_yuv.numpy()
-        return self.face_data_yuv
+        return tensor_yuv.numpy()
 
 
 if __name__ == "__main__":
