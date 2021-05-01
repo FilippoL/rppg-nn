@@ -1,5 +1,6 @@
 import json
 import os
+from itertools import product
 
 import cv2
 import dlib
@@ -12,8 +13,8 @@ class FaceProcessor:
     Class that will take care of the extra steps for our processing pipeline beside the detection.
     """
 
-    def __init__(self):
-        self.use_gtx_model = False
+    def __init__(self, use_gtx = False):
+        self.use_gtx_model = use_gtx
         _gtx_model = "shape_predictor_68_face_landmarks_GTX.dat"
         _cpu_model = "shape_predictor_68_face_landmarks.dat"
         _predictor_name = _gtx_model if self.use_gtx_model else _cpu_model
@@ -25,7 +26,7 @@ class FaceProcessor:
             self.facial_landmarks_indices = json.load(json_file)
 
         self.desired_left_eye_coord = (0.35, 0.35)
-        self.desired_face_width = 256
+        self.desired_face_width = 250
         self.desired_face_height = None
         if self.desired_face_height is None:
             self.desired_face_height = self.desired_face_width
@@ -50,8 +51,8 @@ class FaceProcessor:
         """
         # This function is inspired by Adrian Rosebrock post on pyImageSearch
 
-        (left_eye_from, left_eye_to) = self.facial_landmarks_indices["left_eye"]
-        (right_eye_from, right_eye_to) = self.facial_landmarks_indices["right_eye"]
+        (left_eye_from, left_eye_to) = self.facial_landmarks_indices["generic"]["left_eye"]
+        (right_eye_from, right_eye_to) = self.facial_landmarks_indices["generic"]["right_eye"]
 
         left_eye_points = landmarks[left_eye_from:left_eye_to]
         right_eye_points = landmarks[right_eye_from:right_eye_to]
@@ -97,10 +98,8 @@ class FaceProcessor:
         horizontal_blocks, vertical_blocks = n_blocks
         horizontal = np.array_split(img, horizontal_blocks)
         splitted_img = [np.array_split(block, vertical_blocks, axis=1) for block in horizontal]
-        if reshape:
-            return np.asarray(splitted_img, dtype=np.ndarray).reshape(n_blocks)
-        else:
-            return splitted_img
+        return np.asarray(splitted_img, dtype=np.ndarray)
+
 
     @staticmethod
     def rgb_to_yuv(img):
