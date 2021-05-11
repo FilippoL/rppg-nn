@@ -25,11 +25,8 @@ class FaceProcessor:
         with open(_facial_landmarks_indices_path) as json_file:
             self.facial_landmarks_indices = json.load(json_file)
 
-        self.desired_left_eye_coord = (0.35, 0.35)
         self.desired_face_width = 250
-        self.desired_face_height = None
-        if self.desired_face_height is None:
-            self.desired_face_height = self.desired_face_width
+        self.desired_face_height = self.desired_face_width
 
     def get_face_landmarks(self, image, rectangle):
         """
@@ -64,30 +61,25 @@ class FaceProcessor:
         dx = right_eye_center[0] - left_eye_center[0]
 
         angle = np.degrees(np.arctan2(dy, dx)) - 180
-        desired_right_eye_x = 1.0 - self.desired_left_eye_coord[0]
-        dist = np.sqrt((dx ** 2) + (dy ** 2))
-        desired_dist = (desired_right_eye_x - self.desired_left_eye_coord[0])
-        desired_dist *= self.desired_face_width
 
-        scale = desired_dist / dist
 
         eyes_center = ((left_eye_center[0] + right_eye_center[0]) // 2,
                        (left_eye_center[1] + right_eye_center[1]) // 2)
 
-        M = cv2.getRotationMatrix2D(eyes_center, angle, scale)
+        M = cv2.getRotationMatrix2D(eyes_center, angle, scale=1.0)
 
-        tx = self.desired_face_width * 0.5
-        ty = self.desired_face_height * self.desired_left_eye_coord[1]
+        tx = self.desired_face_width * 0.55
+        ty = self.desired_face_height * 0.35
 
         M[0, 2] += (tx - eyes_center[0])
         M[1, 2] += (ty - eyes_center[1])
 
-        (w, h) = (self.desired_face_width, self.desired_face_height)
-        output = cv2.warpAffine(image, M, (w, h), flags=cv2.INTER_CUBIC)
+        dim = (self.desired_face_width, self.desired_face_height)
+        output = cv2.warpAffine(image, M, dim, flags=cv2.INTER_CUBIC)
         return output
 
     @staticmethod
-    def divide_roi_blocks(img, n_blocks=(5, 5), reshape=True):
+    def divide_roi_blocks(img, n_blocks=(5, 5)):
         """
         My implementation of a function that splits a given image in NxM blocks.
         Faster than any package that achieves the same result.
@@ -98,7 +90,8 @@ class FaceProcessor:
         horizontal_blocks, vertical_blocks = n_blocks
         horizontal = np.array_split(img, horizontal_blocks)
         splitted_img = [np.array_split(block, vertical_blocks, axis=1) for block in horizontal]
-        return np.asarray(splitted_img, dtype=np.ndarray)
+        # return np.asarray(splitted_img, dtype=np.ndarray)
+        return splitted_img
 
 
     @staticmethod
