@@ -1,4 +1,4 @@
-import json
+import math
 import os
 from itertools import product
 
@@ -8,81 +8,49 @@ import numpy as np
 
 from FaceManager.FaceDetection import FaceDetectorSSD
 from FaceManager.FaceProcessing import FaceProcessor
+from FaceManager.helpers import pad
+
+# TODO: [x] Explore signal on a few seconds range, possibly visualize on Tableau
+# TODO: [x] Check documents on oximetry
+# TODO: [x] Port BVP signal on Tableau
+# TODO: [x] Start spatio-temporal maps creation
+# TODO: [x] List all requirements first
+# TODO: [x] Table for methods and their score per requirements
+# TODO: [x] Expand error section on possible other metrics and why the ones have been chosen
+# TODO: [x] Filter nxn conv instead of mean (filter size = 3x3)
+# TODO: [x] Test validity by enhancing one color channel
+# TODO: [x] Change pipeline figures with your own
+# TODO: [] Concatenate onto other dimension
+# TODO: [] Adjust face cropping after alignment
+# TODO: [] Masking/Augmentation
+# TODO: [] Build ResNet18 wrapper class
+# TODO: [] Study loss function
 
 
-def pad(img, w, h):
-    top_pad = np.floor((h - img.shape[0]) / 2).astype(np.uint16)
-    bottom_pad = np.ceil((h - img.shape[0]) / 2).astype(np.uint16)
-    right_pad = np.ceil((w - img.shape[1]) / 2).astype(np.uint16)
-    left_pad = np.floor((w - img.shape[1]) / 2).astype(np.uint16)
+### HYPERPARAMETERS
+inverted = False  # Concatenate in an horizontal fashion
+time_window = 0.5  # Time window in seconds
+number_roi = 5  # Number of region of interests within a frame
+video_path = "./data/data_in/me.avi"  # "D:\\Downloads\\test.mp4" # Path to video file
+filter_size = 3  # Padding filter size
 
-    filter_size = 3
-    padded = []
-
-    for c in range(left_pad):
-        horizontal_padding = []
-        to_be_padded = img if c == 0 else padded
-        for i in range(0, to_be_padded.shape[0], filter_size):
-            sub_array = to_be_padded[i:i + filter_size, :filter_size]
-            horizontal_padding.append(np.mean(sub_array, axis=1))
-        horizontal_padding = np.concatenate(horizontal_padding, axis=0).reshape(-1, 1, 3)
-        horizontal_padding = np.delete(horizontal_padding, slice(to_be_padded.shape[0], horizontal_padding.shape[0]), 1)
-        padded = np.hstack((horizontal_padding, to_be_padded))
-
-    if type(padded) == list: padded = img
-    for c in range(right_pad):
-        horizontal_padding = []
-        for i in range(0, padded.shape[0], filter_size):
-            sub_array = padded[i:i + filter_size, -filter_size:]
-            horizontal_padding.append(np.mean(sub_array, axis=1))
-        horizontal_padding = np.concatenate(horizontal_padding, axis=0).reshape(-1, 1, 3)
-        horizontal_padding = np.delete(horizontal_padding, slice(padded.shape[0], horizontal_padding.shape[0]), 1)
-        padded = np.hstack((padded, horizontal_padding))
-
-    if type(padded) == list: padded = img
-    for c in range(top_pad):
-        vertical_padding = []
-        for i in range(0, padded.shape[1], filter_size):
-            sub_array = padded[:filter_size, i:i + filter_size]
-            vertical_padding.append(np.mean(sub_array, axis=1))
-        vertical_padding = np.concatenate(vertical_padding, axis=0).reshape(1, -1, 3)
-        vertical_padding = np.delete(vertical_padding, slice(padded.shape[1], vertical_padding.shape[1]), 1)
-        padded = np.vstack((vertical_padding, padded))
-
-    if type(padded) == list: padded = img
-    for c in range(bottom_pad):
-        vertical_padding = []
-        for i in range(0, padded.shape[1], filter_size):
-            sub_array = padded[-filter_size:, i:i + filter_size]
-            vertical_padding.append(np.mean(sub_array, axis=1))
-        vertical_padding = np.concatenate(vertical_padding, axis=0).reshape(1, -1, 3)
-        vertical_padding = np.delete(vertical_padding, slice(padded.shape[1], vertical_padding.shape[1]), 1)
-        padded = np.vstack((padded, vertical_padding))
-
-    # return np.copy(np.pad(img, ((top_pad, bottom_pad), (left_pad, right_pad), (0, 0)), mode='linear_ramp'))
-    return padded
-
-with open(
-        "D:\\Documents\\Programming\\Python\\thesisProject\\FaceManager\\config\\landmarks_indices.json") as json_file:
-    facial_landmarks_indices = json.load(json_file)
-
-
-inverted = True
 
 def main():
+    # Instantiate face detector and processor
     fd = FaceDetectorSSD()
     fp = FaceProcessor()
 
-
-    # video_path = "D:\\Downloads\\test.mp4"
-    video_path = "./data/data_in/me.avi"
+    # Check if video path is a valid directory
     assert os.path.isfile(video_path), f"{video_path} is not a valid path."
 
+    # Instantiate video capture
     video_capture = cv2.VideoCapture(video_path)
+    # Read the first frame out of the loop to set the loop condition to True
     success, image = video_capture.read()
 
-    n_frames_per_batch = 30
-    n_roi = 5
+    # Calculate number of frames in set time window
+    fps = video_capture.get(cv2.cv2.CAP_PROP_FPS)
+    n_frames_per_batch = math.ceil(time_window * fps)  # Round up
 
     segmented_frames = []
     while success:
@@ -104,10 +72,10 @@ def main():
 
         yuv_aligned_face = cv2.cvtColor(aligned_and_detected, cv2.COLOR_BGR2YUV)
         h, w = yuv_aligned_face.shape[:2]
-        target_w = (w + (n_roi - (w % n_roi))) if w % n_roi != 0 else w
-        target_h = (h + (n_roi - (h % n_roi))) if h % n_roi != 0 else h
-        yuv_align_padded_face = pad(yuv_aligned_face, target_w, target_h)
-        blocks = fp.divide_roi_blocks(yuv_align_padded_face, (n_roi, n_roi))
+        target_w = (w + (number_roi - (w % number_roi))) if w % number_roi != 0 else w
+        target_h = (h + (number_roi - (h % number_roi))) if h % number_roi != 0 else h
+        yuv_align_padded_face = pad(yuv_aligned_face, target_w, target_h, filter_size)
+        blocks = fp.divide_roi_blocks(yuv_align_padded_face, (number_roi, number_roi))
         segmented_frames.append(blocks)
 
         if len(segmented_frames) != n_frames_per_batch: continue
