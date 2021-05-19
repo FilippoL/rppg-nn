@@ -1,7 +1,6 @@
 import json
 import os
-from itertools import product
-
+from math import cos, sin
 import cv2
 import dlib
 import numpy as np
@@ -13,7 +12,7 @@ class FaceProcessor:
     Class that will take care of the extra steps for our processing pipeline beside the detection.
     """
 
-    def __init__(self, use_gtx = False):
+    def __init__(self, use_gtx=False):
         self.use_gtx_model = use_gtx
         _gtx_model = "shape_predictor_68_face_landmarks_GTX.dat"
         _cpu_model = "shape_predictor_68_face_landmarks.dat"
@@ -24,9 +23,6 @@ class FaceProcessor:
         _facial_landmarks_indices_path = os.path.join(os.path.dirname(__file__), "config", "landmarks_indices.json")
         with open(_facial_landmarks_indices_path) as json_file:
             self.facial_landmarks_indices = json.load(json_file)
-
-        self.desired_face_width = 250
-        self.desired_face_height = self.desired_face_width
 
     def get_face_landmarks(self, image, rectangle):
         """
@@ -39,7 +35,7 @@ class FaceProcessor:
         landmarks = np.matrix([[p.x, p.y] for p in shape.parts()])
         return np.squeeze(np.asarray(landmarks))
 
-    def align(self, image, landmarks):
+    def align(self, image, landmarks, points):
         """
         This function takes an image and the landmarks positions and aligns the face in the image accordingly.
         :param image: The face image to be aligned.
@@ -47,7 +43,6 @@ class FaceProcessor:
         :return: The aligned image.
         """
         # This function is inspired by Adrian Rosebrock post on pyImageSearch
-
         (left_eye_from, left_eye_to) = self.facial_landmarks_indices["generic"]["left_eye"]
         (right_eye_from, right_eye_to) = self.facial_landmarks_indices["generic"]["right_eye"]
 
@@ -62,21 +57,16 @@ class FaceProcessor:
 
         angle = np.degrees(np.arctan2(dy, dx)) - 180
 
-
         eyes_center = ((left_eye_center[0] + right_eye_center[0]) // 2,
                        (left_eye_center[1] + right_eye_center[1]) // 2)
 
         M = cv2.getRotationMatrix2D(eyes_center, angle, scale=1.0)
 
-        tx = self.desired_face_width * 0.55
-        ty = self.desired_face_height * 0.35
 
-        M[0, 2] += (tx - eyes_center[0])
-        M[1, 2] += (ty - eyes_center[1])
-
-        dim = (self.desired_face_width, self.desired_face_height)
+        dim = (image.shape[1], image.shape[0])
         output = cv2.warpAffine(image, M, dim, flags=cv2.INTER_CUBIC)
-        return output
+
+        return output[points[2]:points[3], points[0]:points[1]]
 
     @staticmethod
     def divide_roi_blocks(img, n_blocks=(5, 5)):
@@ -92,7 +82,6 @@ class FaceProcessor:
         splitted_img = [np.array_split(block, vertical_blocks, axis=1) for block in horizontal]
         # return np.asarray(splitted_img, dtype=np.ndarray)
         return splitted_img
-
 
     @staticmethod
     def rgb_to_yuv(img):

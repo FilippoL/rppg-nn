@@ -5,7 +5,8 @@ from itertools import product
 import cv2
 import dlib
 import numpy as np
-
+import random
+from tqdm import tqdm
 from FaceManager.FaceDetection import FaceDetectorSSD
 from FaceManager.FaceProcessing import FaceProcessor
 from FaceManager.helpers import pad
@@ -20,22 +21,23 @@ from FaceManager.helpers import pad
 # TODO: [x] Filter nxn conv instead of mean (filter size = 3x3)
 # TODO: [x] Test validity by enhancing one color channel
 # TODO: [x] Change pipeline figures with your own
-# TODO: [] Concatenate onto other dimension
-# TODO: [] Adjust face cropping after alignment
-# TODO: [] Masking/Augmentation
+# TODO: [x] Concatenate onto other dimension
+# TODO: [x] Adjust face cropping after alignment
+# TODO: [x] Masking/Augmentation
 # TODO: [] Build ResNet18 wrapper class
 # TODO: [] Study loss function
 
 
-### HYPERPARAMETERS
-inverted = False  # Concatenate in an horizontal fashion
+# Hyper parameters
+inverted = True  # Concatenate in an horizontal fashion
 time_window = 0.5  # Time window in seconds
 number_roi = 5  # Number of region of interests within a frame
-video_path = "./data/data_in/me.avi"  # "D:\\Downloads\\test.mp4" # Path to video file
+video_path = "./data/data_in/data.avi"  # "D:\\Downloads\\test.mp4" # Path to video file
 filter_size = 3  # Padding filter size
-
+masking_frequency = 0.1 # Frequency with which apply a mask (0 to 1)
 
 def main():
+
     # Instantiate face detector and processor
     fd = FaceDetectorSSD()
     fp = FaceProcessor()
@@ -45,15 +47,15 @@ def main():
 
     # Instantiate video capture
     video_capture = cv2.VideoCapture(video_path)
-    # Read the first frame out of the loop to set the loop condition to True
-    success, image = video_capture.read()
 
     # Calculate number of frames in set time window
     fps = video_capture.get(cv2.cv2.CAP_PROP_FPS)
+    n_tot_frames = int(video_capture.get(cv2.cv2.CAP_PROP_FRAME_COUNT))
     n_frames_per_batch = math.ceil(time_window * fps)  # Round up
 
     segmented_frames = []
-    while success:
+
+    for _ in tqdm(range(n_tot_frames)):
         success, img = video_capture.read()
         original_img = img.copy()
         result = fd.detect_face(img)
@@ -65,10 +67,8 @@ def main():
         top, bottom, left, right = indices
         rect = dlib.rectangle(left, top, right, bottom)
         landmarks = fp.get_face_landmarks(original_img, rect)
-        fp.desired_face_width = result["detected_face_img"].shape[1]
-        fp.desired_face_height = result["detected_face_img"].shape[0]
-        # fp.desired_left_eye_coord = landmarks[facial_landmarks_indices["exact"]["rightmost_l_eye"]]
-        aligned_and_detected = fp.align(original_img, landmarks)
+        idxs = [left,right, top, bottom]
+        aligned_and_detected = fp.align(original_img, landmarks, idxs)
 
         yuv_aligned_face = cv2.cvtColor(aligned_and_detected, cv2.COLOR_BGR2YUV)
         h, w = yuv_aligned_face.shape[:2]
@@ -80,17 +80,25 @@ def main():
 
         if len(segmented_frames) != n_frames_per_batch: continue
 
-        out_map = np.empty([len(blocks) ** 2, 0], dtype=np.float)
-        if inverted:
-            out_map = np.empty([0, len(blocks) ** 2], dtype=np.float)
+        size = [0, len(blocks) ** 2] if not inverted else [len(blocks) ** 2, 0]
+        out_map = np.empty(size, dtype=np.float)
+
         for frame in segmented_frames:
             means = []
             for i, j in product(range(len(frame)), range(len(frame))):
-                means.append(np.mean(frame[i][j].reshape(-1, 3), 0))
-            if inverted:
-                out_map = np.append(out_map, np.array(means, dtype=np.float).reshape(3, -1), axis=0)
-            else:
-                out_map = np.append(out_map, np.array(means, dtype=np.float).reshape(-1, 3), axis=1)
+                if inverted: i, j = j, i
+                mean = np.mean(frame[i][j].reshape(-1, 3), 0)
+                means.append(mean)
+            out_map = np.append(out_map, np.array(means, dtype=np.float).reshape(-1, 3), axis=1)
+
+        n_masked_frames = np.ceil(out_map.shape[1] * masking_frequency)
+        mask = np.zeros_like(out_map[0,0])
+        rnd_indices = random.sample(range(out_map.shape[1]), int(n_masked_frames))
+
+        for idx in rnd_indices:
+            out_map[:,idx] = mask
+
+        out_map = out_map.reshape((-1, n_frames_per_batch, 3))
         segmented_frames = []
 
 
