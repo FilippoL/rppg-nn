@@ -11,7 +11,8 @@ import numpy as np
 from tqdm import tqdm
 
 
-root_path = "G:\\DatasetsThesis\\COHFACE"
+root_path = "./data/data_in/sample_COHFACE"
+# root_path = "G:\\DatasetsThesis\\COHFACE"
 readings_per_second = 256
 frames_per_second = 20
 video_length = 60
@@ -24,4 +25,6 @@ for subdir, dirs, files in os.walk(root_path):
         if not os.path.isfile(os.path.join(root_path, subdir.split("\\")[-2], dataset_name)):
             file_extension = file.split(".")[1]
             if file.endswith("avi"):
+                pass
+            elif file.endswith("hdf5"):
                 pass
