@@ -12,6 +12,8 @@
 .idea/**/dictionaries
 .idea/**/shelf
 
+trash/
+
 logs/**
 
 # Generated files

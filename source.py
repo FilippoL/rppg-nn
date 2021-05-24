@@ -63,12 +63,10 @@ def main():
             print(f"No face could be found by {fd.detector_name} face detector.\nSkipping.")
             continue
 
-        indices = result["bbox_indices"]
-        top, bottom, left, right = indices
+        top, bottom, left, right = result["bbox_indices"]
         rect = dlib.rectangle(left, top, right, bottom)
         landmarks = fp.get_face_landmarks(original_img, rect)
-        idxs = [left,right, top, bottom]
-        aligned_and_detected = fp.align(original_img, landmarks, idxs)
+        aligned_and_detected = fp.align(original_img, landmarks, [left, right, top, bottom])
 
         yuv_aligned_face = cv2.cvtColor(aligned_and_detected, cv2.COLOR_BGR2YUV)
         h, w = yuv_aligned_face.shape[:2]
