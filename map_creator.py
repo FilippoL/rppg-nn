@@ -1,7 +1,7 @@
 import math
 import os
-import random
 from itertools import product
+from random import choices
 
 import cv2
 import dlib
@@ -15,7 +15,7 @@ def make_spatio_temporal_maps(fd, fp, video_path,
                               time_window=0.5,
                               number_roi=5,
                               filter_size=3,
-                              masking_frequency=0.1,
+                              masking_frequency=0,
                               inverted=True):
     '''
 
@@ -23,7 +23,7 @@ def make_spatio_temporal_maps(fd, fp, video_path,
     :param time_window: Time window in seconds
     :param number_roi: Number of region of interests within a frame
     :param filter_size: Padding filter size as tuple
-    :param masking_frequency: Frequency with which apply a mask (0 to 1)
+    :param masking_frequency: How many frames get masked
     :param inverted: Concatenate in an horizontal fashion
     :return: Ndarray containing map
     '''
@@ -38,12 +38,34 @@ def make_spatio_temporal_maps(fd, fp, video_path,
     fps = video_capture.get(cv2.cv2.CAP_PROP_FPS)
     n_tot_frames = int(video_capture.get(cv2.cv2.CAP_PROP_FRAME_COUNT))
     n_frames_per_batch = math.ceil(time_window * fps)  # Round up
+    assert masking_frequency < n_tot_frames, "Masking frequency higher than total number of frames."
 
     segmented_frames = []
     final_maps = []
+    frame_masked_counter = 0
+    if masking_frequency == 0:
+        mask_str = f"Number of masked frames: {0}"
+        masking_indices = []
+    else:
+        masking_indices = choices(range(n_tot_frames), k=masking_frequency)
+        mask_str = f"Number of masked frames: {masking_frequency}"
 
-    for _ in tqdm(range(n_tot_frames)):
+    print(f'''
+{"*" * 25}
+Processing video at: {video_path}
+Time window in seconds: {time_window}
+Time window in frames: {n_frames_per_batch}
+{mask_str}
+{"*" * 25}                
+        ''')
+
+    step = 0.5
+    move_by_frames = step * fps
+
+    for _ in tqdm(range(n_tot_frames), "Processing all frames"):
         success, img = video_capture.read()
+
+        frame_masked_counter += 1
         original_img = img.copy()
         result = fd.detect_face(img)
         if not result:
@@ -61,14 +83,22 @@ def make_spatio_temporal_maps(fd, fp, video_path,
         target_h = (h + (number_roi - (h % number_roi))) if h % number_roi != 0 else h
         yuv_align_padded_face = pad(yuv_aligned_face, target_w, target_h, filter_size)
         blocks = fp.divide_roi_blocks(yuv_align_padded_face, (number_roi, number_roi))
+
+        if frame_masked_counter in masking_indices:
+            blocks = np.zeros_like(blocks)
+
         segmented_frames.append(blocks)
 
-        if len(segmented_frames) != n_frames_per_batch: continue
+    for n in tqdm(range(0, len(segmented_frames), int(move_by_frames)), f"Creating maps"):
+
+        frames_subset = segmented_frames[n:n + n_frames_per_batch]
+
+        if len(frames_subset) != n_frames_per_batch: continue
 
         size = [0, len(blocks) ** 2] if inverted else [len(blocks) ** 2, 0]
         out_map = np.empty(size, dtype=np.float)
 
-        for frame in segmented_frames:
+        for frame in frames_subset:
             means = []
             for i, j in product(range(len(frame)), range(len(frame))):
                 if inverted: i, j = j, i
@@ -76,15 +106,6 @@ def make_spatio_temporal_maps(fd, fp, video_path,
                 means.append(mean)
             out_map = np.append(out_map, np.array(means, dtype=np.float).reshape(-1, 3), axis=1)
 
-        n_masked_frames = np.ceil(out_map.shape[1] * masking_frequency)
-        mask = np.zeros_like(out_map[0, 0])
-        rnd_indices = random.sample(range(out_map.shape[1]), int(n_masked_frames))
-
-        for idx in rnd_indices:
-            out_map[:, idx] = mask
-
-        out_map = out_map.reshape((-1, n_frames_per_batch, 3))
-        segmented_frames = []
-        final_maps.append(out_map)
+        final_maps.append((round((n + n_frames_per_batch) / 20, 2), out_map.reshape((-1, n_frames_per_batch, 3))))
 
     return final_maps
