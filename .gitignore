@@ -12,6 +12,8 @@
 .idea/**/dictionaries
 .idea/**/shelf
 
+wandb/
+
 trash/
 
 logs/**

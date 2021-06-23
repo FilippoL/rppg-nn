@@ -102,7 +102,7 @@ class FaceProcessor:
         """
         normalised_face_data = np.divide(img, 255)
         tensor_yuv = tf.image.rgb_to_yuv(normalised_face_data)
-        return tensor_yuv.numpy()
+        return np.multiply(tensor_yuv.numpy(), 255)
 
 
 if __name__ == "__main__":

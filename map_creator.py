@@ -77,7 +77,9 @@ Time window in frames: {n_frames_per_batch}
         landmarks = fp.get_face_landmarks(original_img, rect)
         aligned_and_detected = fp.align(original_img, landmarks, [left, right, top, bottom])
 
-        yuv_aligned_face = cv2.cvtColor(aligned_and_detected, cv2.COLOR_BGR2YUV)
+        # yuv_aligned_face = cv2.cvtColor(aligned_and_detected, cv2.COLOR_BGR2YUV)
+        yuv_aligned_face = aligned_and_detected
+        # yuv_aligned_face = fp.rgb_to_yuv(aligned_and_detected)
         h, w = yuv_aligned_face.shape[:2]
         target_w = (w + (number_roi - (w % number_roi))) if w % number_roi != 0 else w
         target_h = (h + (number_roi - (h % number_roi))) if h % number_roi != 0 else h
@@ -89,7 +91,7 @@ Time window in frames: {n_frames_per_batch}
 
         segmented_frames.append(blocks)
 
-    for n in tqdm(range(0, len(segmented_frames), int(move_by_frames)), f"Creating maps"):
+    for n in tqdm(range(0, int(len(segmented_frames) - fps), int(move_by_frames)), f"Creating maps"):
 
         frames_subset = segmented_frames[n:n + n_frames_per_batch]
 
