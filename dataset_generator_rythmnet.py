@@ -16,9 +16,7 @@ root_path = "D:\\Documents\\Programming\\Python\\thesisProject\\data\\data_in\\s
 
 video_length = 60
 
-dataset_name_csv = "tmp.csv"
-maps_folder_name = "maps_10x10_rgb"
-pointer_csv_name = "dataset_pointers_10x10.csv"
+
 
 fd = FaceDetectorSSD()
 fp = FaceProcessor()
@@ -31,13 +29,17 @@ number_roi = 10  # Number of region of interests within a frame
 filter_size = 3  # Padding filter size
 masking_frequencies = list(range(1, 3))
 
-f = open("good.txt", "r")
-dirs = [line[:-1] for line in f.readlines()]
+dataset_name_csv = "tmp.csv"
+maps_folder_name = f"maps_{number_roi}x{number_roi}_rgb"
+pointer_csv_name = f"dataset_pointers_{number_roi}x{number_roi}.csv"
 
-for subdir in dirs:
-    for file in os.listdir(subdir):
-# for subdir, dirs, files in os.walk(root_path):
-#     for file in files:
+# f = open("trash/good.txt", "r")
+# dirs = [line[:-1] for line in f.readlines()]
+
+# for subdir in dirs:
+#     for file in os.listdir(subdir):
+for subdir, dirs, files in os.walk(root_path):
+    for file in files:
         if not os.path.isdir(os.path.join(subdir, maps_folder_name)):
             if file.endswith("hdf5"):
                 hf = h5py.File(os.path.join(subdir, file), 'r')
@@ -46,7 +48,7 @@ for subdir in dirs:
                 pulse = np.array(hf["pulse"])
                 bins = np.arange(0, video_length, 0.5)
 
-                _, _, _, t_hr, hr = biosppy.bvp.bvp(pulse, 256, show=False)
+                _, _, _, t_hr, hr = biosppy.ppg.ppg(pulse, 256, show=False)
                 means = []
                 binned_hr_tuple = list(zip(t_hr, hr))
                 dataset["hr"] = binned_hr_tuple
