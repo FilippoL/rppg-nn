@@ -11,94 +11,76 @@ from FaceManager.FaceDetection import FaceDetectorSSD
 from FaceManager.FaceProcessing import FaceProcessor
 from map_creator import make_spatio_temporal_maps
 
-# Hyper parameters
-root_path = "D:\\Documents\\Programming\\Python\\thesisProject\\data\\data_in\\sample_COHFACE"
-
-video_length = 60
-
-
+root_path = r"C:\Users\Filippo\OneDrive - Universiteit Utrecht\Documents\Programming\Python\thesisProject\data\data_in\sample_COHFACE"
+# root_path = r"H:\DatasetsThesis\COHFACE"
 
 fd = FaceDetectorSSD()
 fp = FaceProcessor()
 
-dataset = {"map": [], "hr": []}
-
 inverted = False  # Concatenate in an horizontal fashion
 time_window = 10  # Time window in seconds
-number_roi = 10  # Number of region of interests within a frame
+number_roi = 5  # Number of region of interests within a frame
 filter_size = 3  # Padding filter size
-masking_frequencies = list(range(1, 3))
+masking_frequencies = list(range(1, 5)) # Frequency of masked frames
 
-dataset_name_csv = "tmp.csv"
-maps_folder_name = f"maps_{number_roi}x{number_roi}_rgb"
-pointer_csv_name = f"dataset_pointers_{number_roi}x{number_roi}.csv"
+dataset_name_csv = f"tmp_{number_roi}x{number_roi}.csv"
+maps_folder_name = f"maps_{number_roi}x{number_roi}_yuv"
+pointer_csv_name = f"dataset_pointers_{number_roi}x{number_roi}_mock.csv"
 
-# f = open("trash/good.txt", "r")
-# dirs = [line[:-1] for line in f.readlines()]
-
-# for subdir in dirs:
-#     for file in os.listdir(subdir):
 for subdir, dirs, files in os.walk(root_path):
-    for file in files:
-        if not os.path.isdir(os.path.join(subdir, maps_folder_name)):
-            if file.endswith("hdf5"):
-                hf = h5py.File(os.path.join(subdir, file), 'r')
 
-                time = np.array(hf["time"])
-                pulse = np.array(hf["pulse"])
-                bins = np.arange(0, video_length, 0.5)
+    data_path = [file for file in files if file.endswith("hdf5")]
+    video_path = [file for file in files if file.endswith("avi")]
 
-                _, _, _, t_hr, hr = biosppy.ppg.ppg(pulse, 256, show=False)
-                means = []
-                binned_hr_tuple = list(zip(t_hr, hr))
-                dataset["hr"] = binned_hr_tuple
-            elif file.endswith("avi"):
-                masking_frequency = choice(masking_frequencies) if randint(0, 1) else 0
+    # If directory doesn't contain video or data skip
+    if len(data_path) == 0 or len(video_path) == 0: continue
 
-                maps = make_spatio_temporal_maps(fd, fp, os.path.join(subdir, file),
-                                                 time_window,
-                                                 number_roi,
-                                                 filter_size,
-                                                 masking_frequency,
-                                                 inverted)
-                names = []
-                for map in maps:
-                    os.makedirs(os.path.join(subdir, maps_folder_name), exist_ok=True)
-                    cv2.imwrite(f"{subdir}\\{maps_folder_name}\\{str(map[0]).replace('.', '_')}.jpg", map[1])
-                    names.append(os.path.join(subdir, maps_folder_name, f"{str(map[0]).replace('.', '_')}.jpg"))
+    # Read data
+    hf = h5py.File(os.path.join(subdir, data_path[0]), 'r')
 
-                dataset["map"] = list(zip(names, [m[1] for m in maps]))
+    # Extract hr signal and timestamps
+    _, _, _, hr_ticks, hr_values = biosppy.ppg.ppg(hf["pulse"], 256, show=False)
 
-            if len(dataset["map"]) != 0 and len(dataset["hr"]) != 0:
-                full_path_csv = os.path.join(subdir, dataset_name_csv)
+    masking_frequency = choice(masking_frequencies) if randint(0, 1) else 0
 
-                hr_ticks = [b[0] for b in dataset["hr"]]
-                hr_values = [b[1] for b in dataset["hr"]]
+    # Make the spatio temporal maps and return a tuple of (time_bin_end, map_image)
+    maps = make_spatio_temporal_maps(fd, fp, os.path.join(subdir, video_path[0]), time_window, number_roi, filter_size,
+                                     masking_frequency, inverted)
 
-                maxs_end = [float(name.split("\\")[-1][:-4].replace("_", ".")) for name in
-                            [value[0] for value in dataset["map"]]]
-                maxs_start = [maxx - 10 for maxx in maxs_end]
-                boolean_array = [np.logical_and(np.array(hr_ticks) >= i, np.array(hr_ticks) <= j) for (i, j) in
-                                 list(zip(maxs_start, maxs_end))]
-                arrays = [np.array(hr_values)[arr] for arr in boolean_array]
-                means = [np.mean(arr) for arr in arrays]
-                names = [name[0] for name in dataset["map"]]
-                pd.DataFrame(list(zip(means, names)), columns=["hr", "file"]).to_csv(full_path_csv)
+    names = []
+    for map in maps:
+        # Crate dirs for .jpg maps
+        os.makedirs(os.path.join(subdir, maps_folder_name), exist_ok=True)
+        dir = os.path.join(subdir, maps_folder_name, f"{str(map[0]).replace('.', '_')}.jpg")
+        # Write the maps
+        cv2.imwrite(dir, map[1])
+        names.append(dir), values.append(map[0])
 
-                print(f"Created dataset at: {subdir}")
-                dataset = {"map": [], "hr": []}
-        else:
-            print(f"Dataset already created at {os.path.join(subdir, maps_folder_name)}")
+    # Time bin start and end to which the map refers
+    margins = list(zip(np.subtract(values, 10), values))
+
+    # Mask to extract the value that are in between bins
+    boolean_array = [np.logical_and(np.array(hr_ticks) >= i, np.array(hr_ticks) <= j) for (i, j) in margins]
+
+    # Take the mean of all values in given time frame
+    arrays = [np.array(hr_values)[arr] for arr in boolean_array]
+    means = [np.mean(arr) for arr in arrays]
+
+    # Dump a temporary csv that will be deleted later
+    full_path_csv = os.path.join(subdir, dataset_name_csv)
+    pd.DataFrame(list(zip(means, names)), columns=["hr", "file"]).to_csv(full_path_csv)
+
+    print(f"Created dataset at: {subdir}")
 
 all_df = []
-for subdir in dirs:
-    for file in os.listdir(subdir):
-# for subdir, dirs, files in os.walk(root_path):
-#     for file in files:
+
+# Stack all the temps csv and save to a unique csv with columns [HR Mean Value, Path To JPG Map]
+for subdir, dirs, files in os.walk(root_path):
+    for file in files:
         if file.endswith("csv"):
             all_df.append(pd.read_csv(os.path.join(subdir, file), index_col=False))
             os.remove(os.path.join(subdir, file))
 
 merged = pd.concat(all_df)
-merged.drop(merged.iloc[:, 0])
+merged.drop(merged.columns[0], axis=1, inplace=True)
 merged.to_csv(pointer_csv_name)

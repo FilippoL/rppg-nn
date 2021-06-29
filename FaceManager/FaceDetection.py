@@ -103,7 +103,7 @@ class FaceDetectorSSD(FaceDetector):
         detections_df = pd.DataFrame(detections[0][0], columns=self.column_labels)
         detected_face_data = detections_df.sort_values("confidence", ascending=False).iloc[0]
 
-        if not np.any(detections) or detected_face_data["confidence"] < 0.25:
+        if not np.any(detections) or detected_face_data["confidence"] < 0.35:
             if verbose: print("No face found by SSD.")
             return False
 

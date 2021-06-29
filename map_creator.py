@@ -6,9 +6,31 @@ from random import choices
 import cv2
 import dlib
 import numpy as np
+import torch
+from torchvision import transforms
+from torchvision.models.segmentation import deeplabv3_resnet101
 from tqdm import tqdm
 
 from FaceManager.helpers import pad
+
+
+def make_deeplab(device):
+    deeplab = deeplabv3_resnet101(pretrained=True).to(device)
+    deeplab.eval()
+    return deeplab
+
+
+def apply_deeplab(deeplab, img, device):
+    deeplab_preprocess = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ])
+    input_tensor = deeplab_preprocess(img)
+    input_batch = input_tensor.unsqueeze(0)
+    with torch.no_grad():
+        output = deeplab(input_batch.to(device))['out'][0]
+    output_predictions = output.argmax(0).cpu().numpy()
+    return (output_predictions == 15)
 
 
 def make_spatio_temporal_maps(fd, fp, video_path,
@@ -77,9 +99,18 @@ Time window in frames: {n_frames_per_batch}
         landmarks = fp.get_face_landmarks(original_img, rect)
         aligned_and_detected = fp.align(original_img, landmarks, [left, right, top, bottom])
 
-        # yuv_aligned_face = cv2.cvtColor(aligned_and_detected, cv2.COLOR_BGR2YUV)
-        yuv_aligned_face = aligned_and_detected
+        # device = torch.device("cpu")
+        # deeplab = make_deeplab(device)
+        # img_orig = aligned_and_detected.copy()
+        #
+        # mask = apply_deeplab(deeplab, img_orig, device)
+        #
+        # masked = cv2.bitwise_and(img_orig, img_orig, mask=mask.astype(np.uint8))
+
+        # yuv_aligned_face = aligned_and_detected
         # yuv_aligned_face = fp.rgb_to_yuv(aligned_and_detected)
+
+        yuv_aligned_face = cv2.cvtColor(aligned_and_detected, cv2.COLOR_BGR2YUV)
         h, w = yuv_aligned_face.shape[:2]
         target_w = (w + (number_roi - (w % number_roi))) if w % number_roi != 0 else w
         target_h = (h + (number_roi - (h % number_roi))) if h % number_roi != 0 else h
