@@ -30,7 +30,7 @@ def apply_deeplab(deeplab, img, device):
     with torch.no_grad():
         output = deeplab(input_batch.to(device))['out'][0]
     output_predictions = output.argmax(0).cpu().numpy()
-    return (output_predictions == 15)
+    return output_predictions == 15
 
 
 def make_spatio_temporal_maps(fd, fp, video_path,
@@ -38,18 +38,21 @@ def make_spatio_temporal_maps(fd, fp, video_path,
                               number_roi=5,
                               filter_size=3,
                               masking_frequency=0,
-                              step = 0.5,
+                              step=0.5,
                               inverted=True):
-    '''
+    """
 
+    :param fd: Face detector instance
+    :param fp: Face processor instance
     :param video_path: Path to video file
     :param time_window: Time window in seconds
     :param number_roi: Number of region of interests within a frame
     :param filter_size: Padding filter size as tuple
     :param masking_frequency: How many frames get masked
+    :param step: Step by which the time window is shifted
     :param inverted: Concatenate in an horizontal fashion
     :return: Ndarray containing map
-    '''
+    """
 
     # Check if video path is a valid directory
     assert os.path.isfile(video_path), f"{video_path} is not a valid path."
@@ -73,16 +76,15 @@ def make_spatio_temporal_maps(fd, fp, video_path,
         masking_indices = choices(range(n_tot_frames), k=masking_frequency)
         mask_str = f"Number of masked frames: {masking_frequency}"
 
-    print(f'''
-{"*" * 25}
-Processing video at: {video_path}
-Time window in seconds: {time_window}
-Time window in frames: {n_frames_per_batch}
-{mask_str}
-{"*" * 25}                
-        ''')
+    print(f'{"*" * 25}')
+    print(f'Processing video at: {video_path}')
+    print(f'Time window in seconds: {time_window}')
+    print(f'Time window in frames: {n_frames_per_batch}')
+    print(f'{mask_str}')
+    print(f'{"*" * 25}')
 
     move_by_frames = step * fps
+    blocks = []
 
     for _ in tqdm(range(n_tot_frames), "Processing all frames"):
         success, img = video_capture.read()

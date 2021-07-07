@@ -20,7 +20,7 @@ fp = FaceProcessor() # Face Processor Instance
 inverted = False  # Concatenate in an horizontal fashion
 time_window = 10  # Time window in seconds
 step = 0.5  # Step to move window with
-number_roi = 10  # Number of region of interests within a frame
+number_roi = 7  # Number of region of interests within a frame
 filter_size = 3  # Padding filter size
 masking_frequencies = list(range(1, 5)) # Frequency of masked frames
 
