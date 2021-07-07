@@ -38,6 +38,7 @@ def make_spatio_temporal_maps(fd, fp, video_path,
                               number_roi=5,
                               filter_size=3,
                               masking_frequency=0,
+                              step = 0.5,
                               inverted=True):
     '''
 
@@ -81,7 +82,6 @@ Time window in frames: {n_frames_per_batch}
 {"*" * 25}                
         ''')
 
-    step = 0.5
     move_by_frames = step * fps
 
     for _ in tqdm(range(n_tot_frames), "Processing all frames"):
@@ -97,6 +97,17 @@ Time window in frames: {n_frames_per_batch}
         top, bottom, left, right = result["bbox_indices"]
         rect = dlib.rectangle(left, top, right, bottom)
         landmarks = fp.get_face_landmarks(original_img, rect)
+
+        # Remove eye regions
+        left_eye = fp.facial_landmarks_indices["generic"]["left_eye"]
+        right_eye = fp.facial_landmarks_indices["generic"]["right_eye"]
+
+        right_hull = cv2.convexHull(landmarks[right_eye[0]:right_eye[1]])
+        left_hull = cv2.convexHull(landmarks[left_eye[0]:left_eye[1]])
+
+        cv2.drawContours(original_img, [right_hull], -1, color=(0, 0, 0), thickness=cv2.FILLED)
+        cv2.drawContours(original_img, [left_hull], -1, color=(0, 0, 0), thickness=cv2.FILLED)
+
         aligned_and_detected = fp.align(original_img, landmarks, [left, right, top, bottom])
 
         # device = torch.device("cpu")

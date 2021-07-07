@@ -11,21 +11,22 @@ from FaceManager.FaceDetection import FaceDetectorSSD
 from FaceManager.FaceProcessing import FaceProcessor
 from map_creator import make_spatio_temporal_maps
 
-root_path = r"C:\Users\Filippo\OneDrive - Universiteit Utrecht\Documents\Programming\Python\thesisProject\data\data_in\sample_COHFACE"
-# root_path = r"H:\DatasetsThesis\COHFACE"
+# root_path = r"C:\Users\Filippo\OneDrive - Universiteit Utrecht\Documents\Programming\Python\thesisProject\data\data_in\sample_COHFACE"
+root_path = r"H:\DatasetsThesis\COHFACE"
 
-fd = FaceDetectorSSD()
-fp = FaceProcessor()
+fd = FaceDetectorSSD() # Face Detector Instance
+fp = FaceProcessor() # Face Processor Instance
 
 inverted = False  # Concatenate in an horizontal fashion
 time_window = 10  # Time window in seconds
-number_roi = 5  # Number of region of interests within a frame
+step = 0.5  # Step to move window with
+number_roi = 10  # Number of region of interests within a frame
 filter_size = 3  # Padding filter size
 masking_frequencies = list(range(1, 5)) # Frequency of masked frames
 
-dataset_name_csv = f"tmp_{number_roi}x{number_roi}.csv"
-maps_folder_name = f"maps_{number_roi}x{number_roi}_yuv"
-pointer_csv_name = f"dataset_pointers_{number_roi}x{number_roi}_mock.csv"
+dataset_name_csv = f"tmp_{number_roi}x{number_roi}_no_eyes.csv" # Name for the temporary .csv files
+maps_folder_name = f"maps_{number_roi}x{number_roi}_yuv_no_eyes" # Name for the folder containing the .jpg maps
+pointer_csv_name = f"dataset_pointers_{number_roi}x{number_roi}_no_eyes.csv" # Name for the final .csv
 
 for subdir, dirs, files in os.walk(root_path):
 
@@ -35,26 +36,27 @@ for subdir, dirs, files in os.walk(root_path):
     # If directory doesn't contain video or data skip
     if len(data_path) == 0 or len(video_path) == 0: continue
 
-    # Read data
-    hf = h5py.File(os.path.join(subdir, data_path[0]), 'r')
-
-    # Extract hr signal and timestamps
-    _, _, _, hr_ticks, hr_values = biosppy.ppg.ppg(hf["pulse"], 256, show=False)
-
-    masking_frequency = choice(masking_frequencies) if randint(0, 1) else 0
 
     # Make the spatio temporal maps and return a tuple of (time_bin_end, map_image)
-    maps = make_spatio_temporal_maps(fd, fp, os.path.join(subdir, video_path[0]), time_window, number_roi, filter_size,
-                                     masking_frequency, inverted)
+    maps = make_spatio_temporal_maps(fd, fp, os.path.join(subdir, video_path[0]), time_window,
+                                     number_roi, filter_size,
+                                     choice(masking_frequencies) if randint(0, 1) else 0, step, inverted)
 
-    names = []
+    names, values = [], []
     for map in maps:
         # Crate dirs for .jpg maps
         os.makedirs(os.path.join(subdir, maps_folder_name), exist_ok=True)
         dir = os.path.join(subdir, maps_folder_name, f"{str(map[0]).replace('.', '_')}.jpg")
+
         # Write the maps
         cv2.imwrite(dir, map[1])
         names.append(dir), values.append(map[0])
+
+    # Read BVP data
+    pulse = h5py.File(os.path.join(subdir, data_path[0]), 'r')["pulse"]
+
+    # Extract hr signal and timestamps
+    _, _, _, hr_ticks, hr_values = biosppy.ppg.ppg(pulse, 256, show=False)
 
     # Time bin start and end to which the map refers
     margins = list(zip(np.subtract(values, 10), values))
@@ -79,6 +81,7 @@ for subdir, dirs, files in os.walk(root_path):
     for file in files:
         if file.endswith("csv"):
             all_df.append(pd.read_csv(os.path.join(subdir, file), index_col=False))
+            # Remove the temp csv
             os.remove(os.path.join(subdir, file))
 
 merged = pd.concat(all_df)
