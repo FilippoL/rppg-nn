@@ -1,5 +1,0 @@
-*.csv filter=lfs diff=lfs merge=lfs -text
-*.avi filter=lfs diff=lfs merge=lfs -text
-models/** filter=lfs diff=lfs merge=lfs -text
-FaceDetection/models/** filter=lfs diff=lfs merge=lfs -text
-
