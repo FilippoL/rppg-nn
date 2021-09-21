@@ -267,3 +267,11 @@ Thumbs.db #thumbnail cache on Windows
 
 
 .idea/
+/FaceManager/config/
+/FaceManager/models/
+/data/
+/dataset_pointers/
+/dataset_generators/
+/models/
+/wandb/
+/report_scripts/
