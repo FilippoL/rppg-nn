@@ -57,10 +57,10 @@ class FaceProcessor:
 
         angle = np.degrees(np.arctan2(dy, dx)) - 180
 
-        eyes_center = ((left_eye_center[0] + right_eye_center[0]) // 2,
-                       (left_eye_center[1] + right_eye_center[1]) // 2)
+        eyes_center = (int((left_eye_center[0] + right_eye_center[0]) // 2),
+                       int((left_eye_center[1] + right_eye_center[1]) // 2))
 
-        M = cv2.getRotationMatrix2D(eyes_center, angle, scale=1.0)
+        M = cv2.getRotationMatrix2D((eyes_center), angle, scale=1.0)
 
 
         dim = (image.shape[1], image.shape[0])
@@ -80,7 +80,6 @@ class FaceProcessor:
         horizontal_blocks, vertical_blocks = n_blocks
         horizontal = np.array_split(img, horizontal_blocks)
         splitted_img = [np.array_split(block, vertical_blocks, axis=1) for block in horizontal]
-        # return np.asarray(splitted_img, dtype=np.ndarray)
         return splitted_img
 
     @staticmethod

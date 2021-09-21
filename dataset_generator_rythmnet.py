@@ -12,7 +12,7 @@ from FaceManager.FaceProcessing import FaceProcessor
 from map_creator import make_spatio_temporal_maps
 
 # root_path = r"C:\Users\Filippo\OneDrive - Universiteit Utrecht\Documents\Programming\Python\thesisProject\data\data_in\sample_COHFACE"
-root_path = r"H:\DatasetsThesis\COHFACE"
+root_path = r"../../Datasets/COHFACE"
 
 fd = FaceDetectorSSD() # Face Detector Instance
 fp = FaceProcessor() # Face Processor Instance
