@@ -89,7 +89,7 @@ def shuffle_df_chunks(in_df, columns):
 
 def scheduler(epoch, lr):
     drop = 0.25
-    epochs_drop = 75.0
+    epochs_drop = 25.0
     lr = LEARNING_RATE * math.pow(drop,
                                   math.floor((1 + epoch) / epochs_drop))
     return lr if lr > 0.00001 else 0.00001
@@ -98,10 +98,10 @@ def scheduler(epoch, lr):
 # %%
 df = pd.read_csv(path_to_pointers, usecols=[1, 2])
 
-with open("../../Datasets/COHFACE/protocols/all/test.txt", "r") as f:
+with open("../../../Datasets/COHFACE/protocols/all/test.txt", "r") as f:
     test = f.readlines()
 
-with open("../../Datasets/COHFACE/protocols/all/train.txt", "r") as f:
+with open("../../../Datasets/COHFACE/protocols/all/train.txt", "r") as f:
     train = f.readlines()
 
 root = df["file"][0]
@@ -197,14 +197,14 @@ else:
 
     reconstructed_model.trainable = True
 
-    reconstructed_model.compile(optimizer=Adam(learning_rate=1.0e-6), loss="mean_absolute_error",
+    reconstructed_model.compile(optimizer=Adam(learning_rate=1.0e-7), loss="mean_absolute_error",
                                 metrics=[RootMeanSquaredError(), MeanAbsolutePercentageError()])
 
     reconstructed_model.fit(train_generator,
                             callbacks=callbacks[:-1],
                             validation_data=val_generator,
-                            epochs=EPOCHS_NUMBER,
+                            epochs=25,
                             shuffle=False)
 
     os.makedirs(f"models/fine_tuned/{MODEL_NAME}/", exist_ok=True)
-    reconstructed_model.save(f"models/fine_tuned/{MODEL_NAME}/rppg-nnet-rgb.h5")
+    reconstructed_model.save(f"models/fine_tuned/{MODEL_NAME}/rppg-nnet-rgb_{25}.h5")

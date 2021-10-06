@@ -3,7 +3,7 @@ import numpy as np
 
 
 with open(
-        r"C:\Users\pippo\Documents\Projects\rppg-nn\FaceManager\config\landmarks_indices.json") as json_file:
+        r"C:\Users\pippo\Documents\Programming\Python\rppg-nnet\FaceManager\config\landmarks_indices.json") as json_file:
     facial_landmarks_indices = json.load(json_file)
 
 def pad(img, w, h, filter_size):
