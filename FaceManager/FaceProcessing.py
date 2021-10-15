@@ -35,6 +35,18 @@ class FaceProcessor:
         landmarks = np.matrix([[p.x, p.y] for p in shape.parts()])
         return np.squeeze(np.asarray(landmarks))
 
+    def remove_eyes(self, image, landmarks):
+        left_eye = self.facial_landmarks_indices["generic"]["left_eye"]
+        right_eye = self.facial_landmarks_indices["generic"]["right_eye"]
+
+        right_hull = cv2.convexHull(landmarks[right_eye[0]:right_eye[1]])
+        left_hull = cv2.convexHull(landmarks[left_eye[0]:left_eye[1]])
+
+        cv2.drawContours(image, [right_hull], -1, color=(0, 0, 0), thickness=cv2.FILLED)
+        cv2.drawContours(image, [left_hull], -1, color=(0, 0, 0), thickness=cv2.FILLED)
+
+        return image
+
     def align(self, image, landmarks, points):
         """
         This function takes an image and the landmarks positions and aligns the face in the image accordingly.
