@@ -112,7 +112,7 @@ def make_spatio_temporal_maps(fd, fp, video_path,
 
         aligned_and_detected = fp.align(original_img, landmarks, [left, right, top, bottom])
 
-        # device = torch.device("cpu")
+        # device = torch.device("gpu")
         # deeplab = make_deeplab(device)
         # img_orig = aligned_and_detected.copy()
         #

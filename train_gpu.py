@@ -1,26 +1,22 @@
 import math
 import os
+from itertools import groupby
 
 import numpy as np
 import pandas as pd
 import tensorflow as tf
-import wandb
+from classification_models.tfkeras import Classifiers
 from keras_preprocessing.image import ImageDataGenerator
 from tensorflow.keras import Input
-from tensorflow.keras.applications.resnet50 import ResNet50
-from tensorflow.keras.callbacks import ModelCheckpoint, LearningRateScheduler, EarlyStopping
-from tensorflow.keras.layers import Dense, Flatten, Dropout
-from tensorflow.keras.metrics import RootMeanSquaredError, MeanAbsolutePercentageError, MeanAbsoluteError
+from tensorflow.keras import backend as K
+from tensorflow.keras.callbacks import ModelCheckpoint, LearningRateScheduler, ReduceLROnPlateau
+from tensorflow.keras.layers import Dense, Flatten, Lambda, Conv1D
+from tensorflow.keras.metrics import RootMeanSquaredError, MeanAbsolutePercentageError
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.optimizers import Adam
 from wandb.keras import WandbCallback
-from scipy.stats import pearsonr
-from classification_models.tfkeras import Classifiers
-from tensorflow.keras import backend as K
-from tensorflow.python.saved_model import loader_impl
-from tensorflow.python.keras.saving.saved_model import load as saved_model_load
-from tqdm.keras import TqdmCallback
-from itertools import groupby
+
+import wandb
 
 
 def pearson_correlation(x, y):
@@ -51,15 +47,15 @@ wandb.init(project='rppg-nnet', entity='filippo')
 os.environ["WANDB_SILENT"] = "true"
 
 path_to_pointers = r"dataset_pointers/dataset_pointers_7x7_no_eyes.csv"
-fine_tuning = True
+fine_tuning = False
 
-EPOCHS_NUMBER = 10
-LEARNING_RATE = 0.001
+EPOCHS_NUMBER = 200
+LEARNING_RATE = 0.0001
 BATCH_SIZE = 64
 INPUT_SHAPE = (49, 200, 3)
 TRAIN_SPLIT = 0.6
 SHUFFLE = True
-MODEL_NAME = "trim-moon"
+MODEL_NAME = "hopeful-forest"
 
 RANDOM_STATE = 12
 
@@ -84,12 +80,12 @@ def shuffle_df_chunks(in_df, columns):
     out_df = pd.DataFrame(np.concatenate(grouped), columns=["file", "hr"])
     out_df["hr"] = pd.to_numeric(out_df["hr"])
     # out_df = out_df["hr", "file"]
-    return out_df.round({"hr": 1})
+    return out_df
 
 
 def scheduler(epoch, lr):
     drop = 0.25
-    epochs_drop = 25.0
+    epochs_drop = 75.0
     lr = LEARNING_RATE * math.pow(drop,
                                   math.floor((1 + epoch) / epochs_drop))
     return lr if lr > 0.00001 else 0.00001
@@ -97,6 +93,7 @@ def scheduler(epoch, lr):
 
 # %%
 df = pd.read_csv(path_to_pointers, usecols=[1, 2])
+df["hr"] = df["hr"].astype(int)
 
 with open("../../../Datasets/COHFACE/protocols/all/test.txt", "r") as f:
     test = f.readlines()
@@ -157,9 +154,19 @@ callbacks = [WandbCallback(
         save_weights_only=True,
         mode='min',
         save_best_only=True),
+    ReduceLROnPlateau(),
     LearningRateScheduler(scheduler)
     # EarlyStopping(patience=15, baseline=)
 ]
+
+
+def weight_image(image_pixels):
+    weight_map = np.load("report_scripts/variance_based_weights_single.npy")
+    # weight_map = Conv1D(3, 1)(tf.convert_to_tensor(weight_map))
+    # weight_map = np.load("report_scripts/variance_based_weights.npy")
+    img = image_pixels * weight_map
+    return img
+
 
 if not fine_tuning:
     print("Training from scratch...\n")
@@ -168,13 +175,17 @@ if not fine_tuning:
 
     base_model.trainable = False
 
-    inputs = Input(shape=INPUT_SHAPE)
-    head = base_model(inputs, training=False)
-    head = Flatten()(head)
-    outputs = Dense(1)(head)
-    # outputs = Dropout(0.005)(outputs)
+    input_layer = Input(shape=INPUT_SHAPE)
 
-    model = Model(inputs=inputs, outputs=outputs)
+    # weight_map = Conv1D(3, 1)(tf.convert_to_tensor(variance_weights))
+
+    # weighting_layer = Lambda(weight_image, name="lambda_layer")(input_layer)
+
+    base = base_model(input_layer, training=False)
+    head = Flatten()(base)
+    outputs = Dense(1)(head)
+
+    model = Model(inputs=input_layer, outputs=outputs)
 
     model.compile(optimizer=Adam(learning_rate=LEARNING_RATE), loss="mean_absolute_error",
                   metrics=[RootMeanSquaredError(), MeanAbsolutePercentageError(), pearson_correlation])
@@ -201,10 +212,10 @@ else:
                                 metrics=[RootMeanSquaredError(), MeanAbsolutePercentageError()])
 
     reconstructed_model.fit(train_generator,
-                            callbacks=callbacks[:-1],
+                            callbacks=callbacks[:-2],
                             validation_data=val_generator,
-                            epochs=25,
+                            epochs=75,
                             shuffle=False)
 
     os.makedirs(f"models/fine_tuned/{MODEL_NAME}/", exist_ok=True)
-    reconstructed_model.save(f"models/fine_tuned/{MODEL_NAME}/rppg-nnet-rgb_{25}.h5")
+    reconstructed_model.save(f"models/fine_tuned/{MODEL_NAME}/rppg-nnet-rgb_{75}.h5")
