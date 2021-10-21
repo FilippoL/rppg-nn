@@ -23,8 +23,9 @@ class MapCreator:
         :param fp: Face processor instance
         """
         self.fd, self.fp = FaceDetectorSSD(), FaceProcessor()
+        self.video_path = video_path
 
-    def init_new_video(self, video_path):
+    def set_video(self, video_path):
         self.video_path = video_path
 
         # Instantiate video capture
@@ -86,7 +87,7 @@ class MapCreator:
             if frame_masked_counter in masking_indices:
                 blocks = np.zeros_like(blocks)
             else:
-                blocks = self.pad_and_split_in_ROI(yuv_aligned_face, number_roi, filter_size, self.fp)
+                blocks = self.pad_and_split_in_ROI(yuv_aligned_face, number_roi, filter_size)
 
             segmented_frames.append(blocks)
 
@@ -112,12 +113,12 @@ class MapCreator:
 
         return final_maps
 
-    def pad_and_split_in_ROI(self, yuv_aligned_face, number_roi, filter_size, fp):
+    def pad_and_split_in_ROI(self, yuv_aligned_face, number_roi, filter_size):
         h, w = yuv_aligned_face.shape[:2]
         target_w = (w + (number_roi - (w % number_roi))) if w % number_roi != 0 else w
         target_h = (h + (number_roi - (h % number_roi))) if h % number_roi != 0 else h
         yuv_align_padded_face = pad(yuv_aligned_face, target_w, target_h, filter_size)
-        blocks = fp.divide_roi_blocks(yuv_align_padded_face, (number_roi, number_roi))
+        blocks = self.fp.divide_roi_blocks(yuv_align_padded_face, (number_roi, number_roi))
         return blocks
 
     def make_deeplab(self, device):

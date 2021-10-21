@@ -79,7 +79,6 @@ def shuffle_df_chunks(in_df, columns):
     np.random.shuffle(grouped)
     out_df = pd.DataFrame(np.concatenate(grouped), columns=["file", "hr"])
     out_df["hr"] = pd.to_numeric(out_df["hr"])
-    # out_df = out_df["hr", "file"]
     return out_df
 
 
@@ -91,7 +90,6 @@ def scheduler(epoch, lr):
     return lr if lr > 0.00001 else 0.00001
 
 
-# %%
 df = pd.read_csv(path_to_pointers, usecols=[1, 2])
 df["hr"] = df["hr"].astype(int)
 
@@ -119,8 +117,6 @@ df_train = shuffle_df_chunks(df.loc[train_indices], ["file", "hr"])
 
 df_validate = shuffle_df_chunks(df.loc[test_indices], ["file", "hr"])
 
-# %%
-
 training_datagen, validation_datagen = ImageDataGenerator(), ImageDataGenerator()
 
 train_generator = training_datagen.flow_from_dataframe(
@@ -142,7 +138,6 @@ val_generator = validation_datagen.flow_from_dataframe(
     target_size=INPUT_SHAPE[:2],
     class_mode='raw')
 
-# %%
 run_name = wandb.run.name
 
 callbacks = [WandbCallback(
@@ -156,14 +151,11 @@ callbacks = [WandbCallback(
         save_best_only=True),
     ReduceLROnPlateau(),
     LearningRateScheduler(scheduler)
-    # EarlyStopping(patience=15, baseline=)
 ]
 
 
 def weight_image(image_pixels):
     weight_map = np.load("report_scripts/variance_based_weights_single.npy")
-    # weight_map = Conv1D(3, 1)(tf.convert_to_tensor(weight_map))
-    # weight_map = np.load("report_scripts/variance_based_weights.npy")
     img = image_pixels * weight_map
     return img
 
@@ -177,10 +169,6 @@ if not fine_tuning:
 
     input_layer = Input(shape=INPUT_SHAPE)
 
-    # weight_map = Conv1D(3, 1)(tf.convert_to_tensor(variance_weights))
-
-    # weighting_layer = Lambda(weight_image, name="lambda_layer")(input_layer)
-
     base = base_model(input_layer, training=False)
     head = Flatten()(base)
     outputs = Dense(1)(head)
@@ -189,7 +177,6 @@ if not fine_tuning:
 
     model.compile(optimizer=Adam(learning_rate=LEARNING_RATE), loss="mean_absolute_error",
                   metrics=[RootMeanSquaredError(), MeanAbsolutePercentageError(), pearson_correlation])
-    # %%
 
     os.makedirs(f"models/{run_name}/", exist_ok=True)
 

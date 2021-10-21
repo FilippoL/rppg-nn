@@ -32,7 +32,7 @@ for subdir, dirs, files in os.walk(root_dataset_path):
     # If directory doesn't contain video or data skip
     if len(data_path) == 0 or len(video_path) == 0: continue
 
-    map_creator.init_new_video(os.path.join(subdir, video_path[0]))
+    map_creator.set_video(os.path.join(subdir, video_path[0]))
 
     # Make the spatio temporal maps and return a tuple of (time_bin_end, map_image)
     maps = map_creator.make_map(masking_frequency=choice(masking_frequencies) if randint(0, 1) else 0)

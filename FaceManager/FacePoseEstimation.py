@@ -20,7 +20,7 @@ class FacePoseEstimator:
             (150.0, -150.0, -125.0)  # Mouth right corner
         ]) / 4.5
 
-        self.face_model_path = os.path.join(os.path.dirname(__file__), "config", "3d_face.dat")
+        self.face_model_path = os.path.join(os.path.dirname(__file__), "models", "3d_face.dat")
 
         self.model_points_68 = self._get_full_model_points()
         # Camera internals
