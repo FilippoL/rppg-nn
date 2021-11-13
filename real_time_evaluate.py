@@ -15,7 +15,7 @@ cam = cv2.VideoCapture(0)
 fd = FaceDetectorSSD()  # Face Detector Instance
 fp = FaceProcessor()  # Face Processor Instance
 model = load_model(
-    r"C:\Users\pippo\Documents\Programming\Python\rppg-nnet\models\fine_tuned\hopeful-forest\rppg-nnet-rgb_25.h5")
+    r"C:\Users\pippo\Documents\Programming\Python\rppg-nnet\model\rppg-nnet.h5")
 
 fps = cam.get(cv2.cv2.CAP_PROP_FPS)
 n_frames_per_batch = math.ceil(10 * fps)

@@ -9,8 +9,8 @@ from classification_models.tfkeras import Classifiers
 from keras_preprocessing.image import ImageDataGenerator
 from tensorflow.keras import Input
 from tensorflow.keras import backend as K
-from tensorflow.keras.callbacks import ModelCheckpoint, LearningRateScheduler, ReduceLROnPlateau
-from tensorflow.keras.layers import Dense, Flatten, Lambda, Conv1D
+from tensorflow.keras.callbacks import ModelCheckpoint, ReduceLROnPlateau
+from tensorflow.keras.layers import Dense, Flatten
 from tensorflow.keras.metrics import RootMeanSquaredError, MeanAbsolutePercentageError
 from tensorflow.keras.models import Model, load_model
 from tensorflow.keras.optimizers import Adam
@@ -149,8 +149,8 @@ callbacks = [WandbCallback(
         save_weights_only=True,
         mode='min',
         save_best_only=True),
-    ReduceLROnPlateau(),
-    LearningRateScheduler(scheduler)
+    ReduceLROnPlateau(factor=0.001, patience=15)
+    # LearningRateScheduler(scheduler)
 ]
 
 

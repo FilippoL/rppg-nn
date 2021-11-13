@@ -103,9 +103,9 @@ class FaceDetectorSSD(FaceDetector):
         detections_df = pd.DataFrame(detections[0][0], columns=self.column_labels)
         detected_face_data = detections_df.sort_values("confidence", ascending=False).iloc[0]
 
-        if not np.any(detections) or detected_face_data["confidence"] < 0.35:
+        if not np.any(detections) or detected_face_data["confidence"] < 0.8:
             if verbose: print("No face found by SSD.")
-            return False
+            return {"bbox_indices": (0, 0, 0, 0), "confidence": detected_face_data["confidence"]}
 
         # Use index of downsized image and map them to original image coordinates so not to loose data
         left, top, right, bottom = [int(x * 300) for x in detected_face_data.iloc[-4:]]
