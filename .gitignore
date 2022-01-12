@@ -19,7 +19,7 @@ FaceManager/models/
 wandb/
 
 trash/
-
+model/
 logs/**
 
 # Generated files
